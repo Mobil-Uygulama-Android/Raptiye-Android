@@ -1,5 +1,6 @@
 package tr.edu.bilimankara20307006.taskflow.ui.project
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,12 +18,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
 import tr.edu.bilimankara20307006.taskflow.data.model.ProjectStatus
@@ -40,9 +43,11 @@ fun ProjectBoardScreen(
     modifier: Modifier = Modifier
 ) {
     // Renk tanımları
-    val darkBackground = Color(0xFF1C1C1E)
-    val cardBackground = Color(0xFF2C2C2E)
+    val darkBackground = MaterialTheme.colorScheme.background
+    val cardBackground = MaterialTheme.colorScheme.surface
     val selectedTabColor = Color(0xFF0A84FF)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     // Tab'lar
     val tabs = listOf("Yapılacaklar", "Devam Ediyor", "Tamamlandı")
@@ -54,6 +59,29 @@ fun ProjectBoardScreen(
     
     // Görevler - ilk proje için
     val tasks = remember { Task.sampleTasks(projects.firstOrNull()?.id ?: "") }
+    
+    // Animation states
+    var topBarVisible by remember { mutableStateOf(false) }
+    var tabsVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(100)
+        topBarVisible = true
+        delay(150)
+        tabsVisible = true
+    }
+    
+    val topBarAlpha by animateFloatAsState(
+        targetValue = if (topBarVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "topBarAlpha"
+    )
+    
+    val tabsAlpha by animateFloatAsState(
+        targetValue = if (tabsVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "tabsAlpha"
+    )
     
     Column(
         modifier = modifier
@@ -67,7 +95,7 @@ fun ProjectBoardScreen(
                     text = "Proje Panosu",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = textColor
                 )
             },
             navigationIcon = {
@@ -75,20 +103,22 @@ fun ProjectBoardScreen(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Geri",
-                        tint = Color.White
+                        tint = textColor
                     )
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = darkBackground
-            )
+            ),
+            modifier = Modifier.alpha(topBarAlpha)
         )
         
         // Tab Row
         TabRow(
             selectedTabIndex = pagerState.currentPage,
             containerColor = darkBackground,
-            contentColor = Color.White,
+            contentColor = textColor,
+            modifier = Modifier.alpha(tabsAlpha),
             indicator = { tabPositions ->
                 if (pagerState.currentPage < tabPositions.size) {
                     val currentTab = tabPositions[pagerState.currentPage]
@@ -189,6 +219,9 @@ private fun TaskCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -232,7 +265,7 @@ private fun TaskCard(
                     text = task.title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
+                    color = textColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -241,7 +274,7 @@ private fun TaskCard(
                     Text(
                         text = "Son teslim: ${task.formattedDueDate}",
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = textSecondaryColor
                     )
                 }
             }

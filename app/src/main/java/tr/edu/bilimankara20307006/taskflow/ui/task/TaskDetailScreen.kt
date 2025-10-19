@@ -1,5 +1,6 @@
 package tr.edu.bilimankara20307006.taskflow.ui.task
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -14,12 +15,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import tr.edu.bilimankara20307006.taskflow.data.model.Comment
 import tr.edu.bilimankara20307006.taskflow.data.model.Task
 import tr.edu.bilimankara20307006.taskflow.data.model.User
@@ -36,16 +39,41 @@ fun TaskDetailScreen(
     modifier: Modifier = Modifier
 ) {
     // Renk tanımları
-    val darkBackground = Color(0xFF1C1C1E)
-    val cardBackground = Color(0xFF2C2C2E)
-    val inputBackground = Color(0xFF3A3A3C)
-    val borderColor = Color(0xFF48484A)
+    val darkBackground = MaterialTheme.colorScheme.background
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val inputBackground = MaterialTheme.colorScheme.surfaceVariant
+    val borderColor = MaterialTheme.colorScheme.outline
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     // State
     var taskTitle by remember { mutableStateOf(task.title) }
     var taskDescription by remember { mutableStateOf(task.description) }
     var commentText by remember { mutableStateOf("") }
     var comments by remember { mutableStateOf(task.comments) }
+    
+    // Animation states
+    var topBarVisible by remember { mutableStateOf(false) }
+    var contentVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(100)
+        topBarVisible = true
+        delay(150)
+        contentVisible = true
+    }
+    
+    val topBarAlpha by animateFloatAsState(
+        targetValue = if (topBarVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "topBarAlpha"
+    )
+    
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (contentVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "contentAlpha"
+    )
     
     Scaffold(
         topBar = {
@@ -55,7 +83,7 @@ fun TaskDetailScreen(
                         text = "Task Details",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White
+                        color = textColor
                     )
                 },
                 navigationIcon = {
@@ -63,13 +91,14 @@ fun TaskDetailScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Geri",
-                            tint = Color.White
+                            tint = textColor
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = darkBackground
-                )
+                ),
+                modifier = Modifier.alpha(topBarAlpha)
             )
         },
         containerColor = darkBackground
@@ -78,7 +107,8 @@ fun TaskDetailScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 20.dp)
+                .alpha(contentAlpha),
             verticalArrangement = Arrangement.spacedBy(20.dp),
             contentPadding = PaddingValues(vertical = 20.dp)
         ) {
@@ -89,7 +119,7 @@ fun TaskDetailScreen(
                         text = "Title",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = textColor
                     )
                     
                     OutlinedTextField(
@@ -101,8 +131,8 @@ fun TaskDetailScreen(
                             unfocusedContainerColor = inputBackground,
                             focusedBorderColor = borderColor,
                             unfocusedBorderColor = borderColor,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor,
                             cursorColor = Color(0xFF0A84FF)
                         ),
                         shape = RoundedCornerShape(12.dp),
@@ -118,7 +148,7 @@ fun TaskDetailScreen(
                         text = "Description",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = textColor
                     )
                     
                     OutlinedTextField(
@@ -132,8 +162,8 @@ fun TaskDetailScreen(
                             unfocusedContainerColor = inputBackground,
                             focusedBorderColor = borderColor,
                             unfocusedBorderColor = borderColor,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor,
                             cursorColor = Color(0xFF0A84FF)
                         ),
                         shape = RoundedCornerShape(12.dp),
@@ -149,7 +179,7 @@ fun TaskDetailScreen(
                         text = "Assignee",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = textColor
                     )
                     
                     task.assignee?.let { assignee ->
@@ -172,7 +202,7 @@ fun TaskDetailScreen(
                             Text(
                                 text = assignee.displayName ?: "Unknown",
                                 fontSize = 16.sp,
-                                color = Color.White
+                                color = textColor
                             )
                         }
                     }
@@ -186,7 +216,7 @@ fun TaskDetailScreen(
                         text = "Due Date",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = textColor
                     )
                     
                     Row(
@@ -201,14 +231,14 @@ fun TaskDetailScreen(
                         Icon(
                             imageVector = Icons.Default.CalendarToday,
                             contentDescription = "Calendar",
-                            tint = Color.Gray,
+                            tint = textSecondaryColor,
                             modifier = Modifier.size(20.dp)
                         )
                         
                         Text(
                             text = task.formattedDueDate,
                             fontSize = 16.sp,
-                            color = Color.White
+                            color = textColor
                         )
                     }
                 }
@@ -220,7 +250,7 @@ fun TaskDetailScreen(
                     text = "Comments",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = textColor
                 )
             }
             
@@ -250,7 +280,7 @@ fun TaskDetailScreen(
                         placeholder = {
                             Text(
                                 text = "Add a comment...",
-                                color = Color.Gray
+                                color = textSecondaryColor
                             )
                         },
                         colors = OutlinedTextFieldDefaults.colors(
@@ -258,8 +288,8 @@ fun TaskDetailScreen(
                             unfocusedContainerColor = inputBackground,
                             focusedBorderColor = borderColor,
                             unfocusedBorderColor = borderColor,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor,
                             cursorColor = Color(0xFF0A84FF)
                         ),
                         shape = RoundedCornerShape(20.dp),
@@ -305,7 +335,9 @@ private fun CommentItem(
     comment: Comment,
     modifier: Modifier = Modifier
 ) {
-    val cardBackground = Color(0xFF2C2C2E)
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -331,13 +363,13 @@ private fun CommentItem(
                     text = comment.author.displayName ?: "Unknown",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = textColor
                 )
                 
                 Text(
                     text = comment.formattedDate,
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = textSecondaryColor
                 )
             }
             
@@ -349,7 +381,7 @@ private fun CommentItem(
                 Text(
                     text = comment.text,
                     fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = textColor.copy(alpha = 0.9f),
                     modifier = Modifier.padding(12.dp)
                 )
             }
@@ -366,6 +398,8 @@ private fun UserAvatar(
     size: Dp,
     modifier: Modifier = Modifier
 ) {
+    val avatarTextColor = Color.White // Avatar text should always be white for contrast
+    
     Box(
         modifier = modifier
             .size(size)
@@ -377,7 +411,7 @@ private fun UserAvatar(
             text = user.displayName?.firstOrNull()?.uppercase() ?: "?",
             fontSize = (size.value / 2).sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = avatarTextColor
         )
     }
 }

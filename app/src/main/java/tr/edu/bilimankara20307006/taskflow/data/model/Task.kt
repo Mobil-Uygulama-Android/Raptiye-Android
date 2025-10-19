@@ -92,22 +92,3 @@ data class Task(
         }
     }
 }
-
-/**
- * Yorum Data Modeli
- */
-data class Comment(
-    val id: String = UUID.randomUUID().toString(),
-    val text: String,
-    val author: User,
-    val createdDate: Date = Date()
-) {
-    /**
-     * Yorum tarihi formatlanmış
-     */
-    val formattedDate: String
-        get() {
-            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            return formatter.format(createdDate)
-        }
-}

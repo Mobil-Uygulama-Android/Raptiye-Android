@@ -1,5 +1,6 @@
 package tr.edu.bilimankara20307006.taskflow.ui.analytics
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -22,8 +24,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.ProjectAnalytics
+import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 
@@ -37,43 +42,75 @@ fun ProjectAnalyticsScreen(
     onBackClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Renk tanımları
-    val darkBackground = Color(0xFF1C1C1E)
-    val cardBackground = Color(0xFF1E2A3A)
+    val context = LocalContext.current
+    val localizationManager = remember { LocalizationManager.getInstance(context) }
+    
+    // Tema renklerini MaterialTheme'den al
+    val darkBackground = MaterialTheme.colorScheme.background
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onBackground
     val selectedTabColor = Color(0xFF0A84FF)
-    val unselectedTabColor = Color(0xFF8E8E93)
+    val unselectedTabColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     // Tab'lar
-    val tabs = listOf("Overview", "Progress", "Team")
+    val tabs = listOf(
+        localizationManager.localizedString("Overview"),
+        localizationManager.localizedString("Progress"),
+        localizationManager.localizedString("Team")
+    )
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val coroutineScope = rememberCoroutineScope()
     
     // Analytics verisi
     val analytics = remember { ProjectAnalytics.sampleAnalytics("project-1") }
     
+    // Animation states
+    var topBarVisible by remember { mutableStateOf(false) }
+    var tabsVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(100)
+        topBarVisible = true
+        delay(150)
+        tabsVisible = true
+    }
+    
+    val topBarAlpha by animateFloatAsState(
+        targetValue = if (topBarVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "topBarAlpha"
+    )
+    
+    val tabsAlpha by animateFloatAsState(
+        targetValue = if (tabsVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "tabsAlpha"
+    )
+    
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "Project Analytics",
+                        text = localizationManager.localizedString("ProjectAnalytics"),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White
+                        color = textColor
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Geri",
-                            tint = Color.White
+                            contentDescription = localizationManager.localizedString("Back"),
+                            tint = textColor
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = darkBackground
-                )
+                ),
+                modifier = Modifier.alpha(topBarAlpha)
             )
         },
         containerColor = darkBackground
@@ -92,7 +129,9 @@ fun ProjectAnalyticsScreen(
                         pagerState.animateScrollToPage(index)
                     }
                 },
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
+                modifier = Modifier
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .alpha(tabsAlpha)
             )
             
             // Horizontal Pager
@@ -101,9 +140,9 @@ fun ProjectAnalyticsScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 when (page) {
-                    0 -> OverviewTab(analytics = analytics)
-                    1 -> ProgressTab()
-                    2 -> TeamTab()
+                    0 -> OverviewTab(analytics = analytics, localizationManager = localizationManager)
+                    1 -> ProgressTab(localizationManager = localizationManager)
+                    2 -> TeamTab(localizationManager = localizationManager)
                 }
             }
         }
@@ -121,8 +160,8 @@ private fun CustomTabRow(
     modifier: Modifier = Modifier
 ) {
     val selectedColor = Color(0xFF0A84FF)
-    val unselectedColor = Color(0xFF8E8E93)
-    val tabBackground = Color(0xFF2C2C2E)
+    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val tabBackground = MaterialTheme.colorScheme.surfaceVariant
     
     Row(
         modifier = modifier
@@ -161,6 +200,7 @@ private fun CustomTabRow(
 @Composable
 private fun OverviewTab(
     analytics: ProjectAnalytics,
+    localizationManager: LocalizationManager,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -172,12 +212,12 @@ private fun OverviewTab(
     ) {
         // Task Completion Rate Card
         item {
-            TaskCompletionRateCard(analytics = analytics)
+            TaskCompletionRateCard(analytics = analytics, localizationManager = localizationManager)
         }
         
         // Project Timeline Card
         item {
-            ProjectTimelineCard(analytics = analytics)
+            ProjectTimelineCard(analytics = analytics, localizationManager = localizationManager)
         }
     }
 }
@@ -186,14 +226,16 @@ private fun OverviewTab(
  * Progress Tab - Placeholder
  */
 @Composable
-private fun ProgressTab() {
+private fun ProgressTab(localizationManager: LocalizationManager) {
+    val textColor = MaterialTheme.colorScheme.onBackground
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Progress content here",
-            color = Color.White,
+            text = localizationManager.localizedString("ProgressContentHere"),
+            color = textColor,
             fontSize = 16.sp
         )
     }
@@ -203,14 +245,16 @@ private fun ProgressTab() {
  * Team Tab - Placeholder
  */
 @Composable
-private fun TeamTab() {
+private fun TeamTab(localizationManager: LocalizationManager) {
+    val textColor = MaterialTheme.colorScheme.onBackground
+    
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Team content here",
-            color = Color.White,
+            text = localizationManager.localizedString("TeamContentHere"),
+            color = textColor,
             fontSize = 16.sp
         )
     }
@@ -222,9 +266,12 @@ private fun TeamTab() {
 @Composable
 private fun TaskCompletionRateCard(
     analytics: ProjectAnalytics,
+    localizationManager: LocalizationManager,
     modifier: Modifier = Modifier
 ) {
-    val cardBackground = Color(0xFF1E2A3A)
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     val changeColor = if (analytics.completionRateChange >= 0) Color(0xFF32D74B) else Color(0xFFFF453A)
     
     Card(
@@ -243,10 +290,10 @@ private fun TaskCompletionRateCard(
             // Header
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Task Completion Rate",
+                    text = localizationManager.localizedString("TaskCompletionRate"),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = textSecondaryColor
                 )
                 
                 Row(
@@ -257,7 +304,7 @@ private fun TaskCompletionRateCard(
                         text = "${analytics.taskCompletionRate}%",
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = textColor
                     )
                 }
                 
@@ -266,9 +313,9 @@ private fun TaskCompletionRateCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Last 30 Days",
+                        text = localizationManager.localizedString("Last30Days"),
                         fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.5f)
+                        color = textSecondaryColor
                     )
                     
                     Text(
@@ -290,7 +337,7 @@ private fun TaskCompletionRateCard(
             ) {
                 // Completed
                 BarChartItem(
-                    label = "Completed",
+                    label = localizationManager.localizedString("Completed"),
                     value = analytics.completedTasks,
                     maxValue = analytics.completedTasks + analytics.inProgressTasks + analytics.pendingTasks,
                     color = Color(0xFF0A84FF),
@@ -299,7 +346,7 @@ private fun TaskCompletionRateCard(
                 
                 // In Progress
                 BarChartItem(
-                    label = "In Progress",
+                    label = localizationManager.localizedString("InProgress"),
                     value = analytics.inProgressTasks,
                     maxValue = analytics.completedTasks + analytics.inProgressTasks + analytics.pendingTasks,
                     color = Color(0xFF0A84FF),
@@ -308,7 +355,7 @@ private fun TaskCompletionRateCard(
                 
                 // Pending
                 BarChartItem(
-                    label = "Pending",
+                    label = localizationManager.localizedString("Pending"),
                     value = analytics.pendingTasks,
                     maxValue = analytics.completedTasks + analytics.inProgressTasks + analytics.pendingTasks,
                     color = Color(0xFF0A84FF).copy(alpha = 0.3f),
@@ -331,6 +378,7 @@ private fun BarChartItem(
     modifier: Modifier = Modifier
 ) {
     val heightFraction = if (maxValue > 0) (value.toFloat() / maxValue.toFloat()) else 0f
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     Column(
         modifier = modifier,
@@ -356,7 +404,7 @@ private fun BarChartItem(
         Text(
             text = label,
             fontSize = 12.sp,
-            color = Color.White.copy(alpha = 0.6f),
+            color = textSecondaryColor,
             maxLines = 1
         )
     }
@@ -368,9 +416,12 @@ private fun BarChartItem(
 @Composable
 private fun ProjectTimelineCard(
     analytics: ProjectAnalytics,
+    localizationManager: LocalizationManager,
     modifier: Modifier = Modifier
 ) {
-    val cardBackground = Color(0xFF1E2A3A)
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     val changeColor = if (analytics.timelineChange >= 0) Color(0xFF32D74B) else Color(0xFFFF453A)
     
     Card(
@@ -389,10 +440,10 @@ private fun ProjectTimelineCard(
             // Header
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Project Timeline",
+                    text = localizationManager.localizedString("ProjectTimeline"),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White.copy(alpha = 0.7f)
+                    color = textSecondaryColor
                 )
                 
                 Row(
@@ -400,10 +451,10 @@ private fun ProjectTimelineCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "${analytics.projectTimelineDays} days",
+                        text = "${analytics.projectTimelineDays} ${localizationManager.localizedString("Days")}",
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = textColor
                     )
                 }
                 
@@ -412,9 +463,9 @@ private fun ProjectTimelineCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Current Project",
+                        text = localizationManager.localizedString("CurrentProject"),
                         fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.5f)
+                        color = textSecondaryColor
                     )
                     
                     Text(
@@ -429,6 +480,7 @@ private fun ProjectTimelineCard(
             // Line Chart
             LineChart(
                 data = analytics.weeklyData,
+                localizationManager = localizationManager,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
@@ -443,9 +495,11 @@ private fun ProjectTimelineCard(
 @Composable
 private fun LineChart(
     data: List<tr.edu.bilimankara20307006.taskflow.data.model.WeekData>,
+    localizationManager: LocalizationManager,
     modifier: Modifier = Modifier
 ) {
     val lineColor = Color(0xFF0A84FF)
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     Column(
         modifier = modifier,
@@ -492,9 +546,9 @@ private fun LineChart(
         ) {
             data.forEach { weekData ->
                 Text(
-                    text = "Week ${weekData.week}",
+                    text = "${localizationManager.localizedString("Week")} ${weekData.week}",
                     fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.5f)
+                    color = textSecondaryColor
                 )
             }
         }

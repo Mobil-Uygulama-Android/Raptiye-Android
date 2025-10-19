@@ -58,7 +58,7 @@ data class Project(
                 title = "Proje 1: Web Sitesi Tasarımı",
                 description = "Web sitesi tasarımı ve geliştirme",
                 iconName = "list",
-                iconColor = "blue",
+                iconColor = "green",
                 dueDate = Date(System.currentTimeMillis() + 10 * 24 * 60 * 60 * 1000), // 10 gün sonra
                 status = ProjectStatus.TODO,
                 tasksCount = 15,
@@ -107,7 +107,7 @@ data class Project(
                 title = "Sosyal Medya Uygulaması",
                 description = "Sosyal medya uygulamasının tasarımı",
                 iconName = "forum",
-                iconColor = "blue",
+                iconColor = "green",
                 status = ProjectStatus.TODO,
                 tasksCount = 8,
                 completedTasksCount = 3

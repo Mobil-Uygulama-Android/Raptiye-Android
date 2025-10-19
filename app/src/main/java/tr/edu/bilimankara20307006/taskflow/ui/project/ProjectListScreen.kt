@@ -1,10 +1,13 @@
 package tr.edu.bilimankara20307006.taskflow.ui.project
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,13 +16,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
+import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 
 /**
  * Proje Listeleme Ekranı - iOS ProjectListView ile birebir uyumlu
@@ -29,18 +39,115 @@ import tr.edu.bilimankara20307006.taskflow.data.model.Project
 fun ProjectListScreen(
     onNavigateToBoard: () -> Unit = {},
     onNavigateToAnalytics: () -> Unit = {},
+    selectedProject: Project? = null,
+    onProjectSelected: (Project?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Show add project dialog
+    var showAddProjectDialog by remember { mutableStateOf(false) }
+    
+    // İlk yükleme kontrolü - sadece ilk açılışta animasyon olsun
+    var isInitialLoad by remember { mutableStateOf(true) }
+    
+    // Animation states
+    var headerVisible by remember { mutableStateOf(false) }
+    var searchVisible by remember { mutableStateOf(false) }
+    var filtersVisible by remember { mutableStateOf(false) }
+    var titleVisible by remember { mutableStateOf(false) }
+    
+    // Trigger animations on first composition
+    LaunchedEffect(Unit) {
+        delay(100)
+        headerVisible = true
+        delay(150)
+        searchVisible = true
+        delay(150)
+        filtersVisible = true
+        delay(150)
+        titleVisible = true
+        delay(550) // Header animasyonları bitince
+        isInitialLoad = false // Artık scroll sırasında animasyon olmasın
+    }
+    
+    // Animated values
+    val headerAlpha by animateFloatAsState(
+        targetValue = if (headerVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "headerAlpha"
+    )
+    
+    val searchAlpha by animateFloatAsState(
+        targetValue = if (searchVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "searchAlpha"
+    )
+    
+    val searchScale by animateFloatAsState(
+        targetValue = if (searchVisible) 1f else 0.95f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "searchScale"
+    )
+    
+    val filtersAlpha by animateFloatAsState(
+        targetValue = if (filtersVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "filtersAlpha"
+    )
+    
+    val titleAlpha by animateFloatAsState(
+        targetValue = if (titleVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+        label = "titleAlpha"
+    )
+    
     var searchText by remember { mutableStateOf("") }
-    var selectedSortOption by remember { mutableStateOf("Tarih") }
-    var selectedFilterOption by remember { mutableStateOf("Tümü") }
+    var selectedSortOption by remember { mutableStateOf(localizationManager.localizedString("SortOptionDate")) }
+    var selectedFilterOption by remember { mutableStateOf(localizationManager.localizedString("FilterOptionAll")) }
     var projects by remember { mutableStateOf(Project.sampleProjects) }
     
-    val sortOptions = listOf("Tarih", "İsim", "İlerleme")
-    val filterOptions = listOf("Tümü", "Aktif", "Tamamlanan")
+    // Button press animations
+    var analyticsButtonPressed by remember { mutableStateOf(false) }
+    var boardButtonPressed by remember { mutableStateOf(false) }
+    var addButtonPressed by remember { mutableStateOf(false) }
+    
+    // Track newly added project for animation
+    var newlyAddedProjectId by remember { mutableStateOf<String?>(null) }
+    
+    val analyticsButtonScale by animateFloatAsState(
+        targetValue = if (analyticsButtonPressed) 0.85f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
+        label = "analyticsButtonScale"
+    )
+    
+    val boardButtonScale by animateFloatAsState(
+        targetValue = if (boardButtonPressed) 0.85f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
+        label = "boardButtonScale"
+    )
+    
+    val addButtonScale by animateFloatAsState(
+        targetValue = if (addButtonPressed) 0.85f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
+        label = "addButtonScale"
+    )
+    
+    val sortOptions = listOf(
+        localizationManager.localizedString("SortOptionDate"),
+        localizationManager.localizedString("SortOptionName"),
+        localizationManager.localizedString("SortOptionProgress")
+    )
+    val filterOptions = listOf(
+        localizationManager.localizedString("FilterOptionAll"),
+        localizationManager.localizedString("FilterOptionActive"),
+        localizationManager.localizedString("FilterOptionCompleted")
+    )
     
     // Filtreleme ve sıralama
-    val filteredProjects = remember(searchText, selectedSortOption, selectedFilterOption, projects) {
+    val filteredProjects = remember(searchText, selectedSortOption, selectedFilterOption, projects, localizationManager.currentLocale) {
         var filtered = projects
         
         // Arama filtresi
@@ -53,23 +160,33 @@ fun ProjectListScreen(
         
         // Durum filtresi
         filtered = when (selectedFilterOption) {
-            "Aktif" -> filtered.filter { !it.isCompleted }
-            "Tamamlanan" -> filtered.filter { it.isCompleted }
+            localizationManager.localizedString("FilterOptionActive") -> filtered.filter { !it.isCompleted }
+            localizationManager.localizedString("FilterOptionCompleted") -> filtered.filter { it.isCompleted }
             else -> filtered
         }
         
         // Sıralama
         when (selectedSortOption) {
-            "İsim" -> filtered.sortedBy { it.title }
-            "İlerleme" -> filtered.sortedByDescending { it.progressPercentage }
+            localizationManager.localizedString("SortOptionName") -> filtered.sortedBy { it.title }
+            localizationManager.localizedString("SortOptionProgress") -> filtered.sortedByDescending { it.progressPercentage }
             else -> filtered.sortedByDescending { it.createdDate }
         }
     }
     
-    // iOS dark theme colors
-    val darkBackground = Color(0xFF1C1C1E)
-    val cardBackground = Color(0xFF2C2C2E)
-    val searchBackground = Color(0xFF3A3A3C)
+    // Tema renklerini MaterialTheme'den al
+    val darkBackground = MaterialTheme.colorScheme.background
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val searchBackground = MaterialTheme.colorScheme.surfaceVariant
+    val textColor = MaterialTheme.colorScheme.onBackground
+    
+    // Show project detail screen if a project is selected
+    if (selectedProject != null) {
+        ProjectDetailScreen(
+            project = selectedProject!!,
+            onBackClick = { onProjectSelected(null) }
+        )
+        return
+    }
     
     Box(
         modifier = modifier
@@ -83,69 +200,109 @@ fun ProjectListScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .alpha(headerAlpha),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Projeler",
+                    text = localizationManager.localizedString("Projects"),
                     fontSize = 34.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = textColor
                 )
                 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Analytics butonu
-                    IconButton(
-                        onClick = onNavigateToAnalytics,
+                    Box(
                         modifier = Modifier
                             .size(40.dp)
+                            .scale(analyticsButtonScale)
                             .background(Color(0xFFFF9F0A), CircleShape)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = {
+                                        analyticsButtonPressed = true
+                                        tryAwaitRelease()
+                                        analyticsButtonPressed = false
+                                    }
+                                )
+                            }
+                            .clickable {
+                                coroutineScope.launch {
+                                    delay(100)
+                                    onNavigateToAnalytics()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.BarChart,
-                            contentDescription = "Analytics",
+                            contentDescription = localizationManager.localizedString("Analytics"),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     
                     // Kanban Panosu butonu
-                    IconButton(
-                        onClick = onNavigateToBoard,
+                    Box(
                         modifier = Modifier
                             .size(40.dp)
+                            .scale(boardButtonScale)
                             .background(Color(0xFF32D74B), CircleShape)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = {
+                                        boardButtonPressed = true
+                                        tryAwaitRelease()
+                                        boardButtonPressed = false
+                                    }
+                                )
+                            }
+                            .clickable {
+                                coroutineScope.launch {
+                                    delay(100)
+                                    onNavigateToBoard()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.ViewKanban,
-                            contentDescription = "Kanban Panosu",
+                            contentDescription = localizationManager.localizedString("KanbanBoard"),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     
                     // Yeni Proje butonu
-                    IconButton(
-                        onClick = {
-                            // Add new project
-                            val newProject = Project(
-                                title = "Yeni Proje ${projects.size + 1}",
-                                description = "Yeni proje açıklaması",
-                                iconName = "folder",
-                                iconColor = "green"
-                            )
-                            projects = projects + newProject
-                        },
+                    Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .background(Color(0xFF007AFF), CircleShape)
+                            .scale(addButtonScale)
+                            .background(Color(0xFF4CAF50), CircleShape)
+                            .pointerInput(Unit) {
+                                detectTapGestures(
+                                    onPress = {
+                                        addButtonPressed = true
+                                        tryAwaitRelease()
+                                        addButtonPressed = false
+                                    }
+                                )
+                            }
+                            .clickable {
+                                coroutineScope.launch {
+                                    delay(100)
+                                    showAddProjectDialog = true
+                                }
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.Add,
-                            contentDescription = "Yeni Proje",
+                            contentDescription = localizationManager.localizedString("NewProject"),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
@@ -160,18 +317,20 @@ fun ProjectListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .padding(top = 8.dp),
+                    .padding(top = 8.dp)
+                    .scale(searchScale)
+                    .alpha(searchAlpha),
                 placeholder = {
                     Text(
-                        text = "Projelerde ara",
-                        color = Color.Gray
+                        text = localizationManager.localizedString("SearchProjects"),
+                        color = textColor.copy(alpha = 0.5f)
                     )
                 },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Search,
-                        contentDescription = "Ara",
-                        tint = Color.Gray
+                        contentDescription = localizationManager.localizedString("Search"),
+                        tint = textColor.copy(alpha = 0.5f)
                     )
                 },
                 colors = OutlinedTextFieldDefaults.colors(
@@ -179,9 +338,9 @@ fun ProjectListScreen(
                     unfocusedContainerColor = searchBackground,
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = Color.White
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    cursorColor = textColor
                 ),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
@@ -191,7 +350,8 @@ fun ProjectListScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .alpha(filtersAlpha),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Sort dropdown
@@ -201,11 +361,11 @@ fun ProjectListScreen(
                         onClick = { sortExpanded = true },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = searchBackground,
-                            contentColor = Color.White
+                            contentColor = textColor
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Sırala", fontSize = 14.sp)
+                        Text(localizationManager.localizedString("Sort"), fontSize = 14.sp)
                         Icon(
                             Icons.Default.ArrowDropDown,
                             contentDescription = null,
@@ -223,12 +383,16 @@ fun ProjectListScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(option)
+                                        Text(
+                                            text = option,
+                                            color = if (selectedSortOption == option) Color(0xFF4CAF50) else textColor
+                                        )
                                         if (selectedSortOption == option) {
                                             Icon(
                                                 Icons.Default.Check,
                                                 contentDescription = null,
-                                                modifier = Modifier.size(20.dp)
+                                                modifier = Modifier.size(20.dp),
+                                                tint = Color(0xFF4CAF50)
                                             )
                                         }
                                     }
@@ -249,11 +413,11 @@ fun ProjectListScreen(
                         onClick = { filterExpanded = true },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = searchBackground,
-                            contentColor = Color.White
+                            contentColor = textColor
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Filtrele", fontSize = 14.sp)
+                        Text(localizationManager.localizedString("Filter"), fontSize = 14.sp)
                         Icon(
                             Icons.Default.ArrowDropDown,
                             contentDescription = null,
@@ -271,12 +435,16 @@ fun ProjectListScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(option)
+                                        Text(
+                                            text = option,
+                                            color = if (selectedFilterOption == option) Color(0xFF4CAF50) else textColor
+                                        )
                                         if (selectedFilterOption == option) {
                                             Icon(
                                                 Icons.Default.Check,
                                                 contentDescription = null,
-                                                modifier = Modifier.size(20.dp)
+                                                modifier = Modifier.size(20.dp),
+                                                tint = Color(0xFF4CAF50)
                                             )
                                         }
                                     }
@@ -293,11 +461,13 @@ fun ProjectListScreen(
             
             // Projects section header
             Text(
-                text = "Projelerim",
+                text = localizationManager.localizedString("MyProjects"),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                color = textColor,
+                modifier = Modifier
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .alpha(titleAlpha)
             )
             
             // Projects list
@@ -308,10 +478,34 @@ fun ProjectListScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 90.dp) // Space for bottom nav
             ) {
-                items(filteredProjects) { project ->
-                    ProjectCardView(project = project)
+                itemsIndexed(filteredProjects) { index, project ->
+                    AnimatedProjectCard(
+                        project = project,
+                        index = index,
+                        isNewlyAdded = project.id == newlyAddedProjectId,
+                        isInitialLoad = isInitialLoad,
+                        onClick = { onProjectSelected(project) }
+                    )
                 }
             }
+        }
+        
+        // Add Project Dialog
+        if (showAddProjectDialog) {
+            AddProjectDialog(
+                onDismiss = { showAddProjectDialog = false },
+                onProjectCreated = { newProject ->
+                    coroutineScope.launch {
+                        newlyAddedProjectId = newProject.id
+                        projects = projects + newProject
+                        showAddProjectDialog = false
+                        
+                        // Reset animation flag after animation completes
+                        delay(600)
+                        newlyAddedProjectId = null
+                    }
+                }
+            )
         }
     }
 }
@@ -322,33 +516,35 @@ fun ProjectListScreen(
 @Composable
 fun ProjectCardView(
     project: Project,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val cardBackground = Color(0xFF2C2C2E)
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     // Icon color mapping
     val iconColor = when (project.iconColor) {
         "mint" -> Color(0xFF00C7BE)
         "orange" -> Color(0xFFFF9500)
-        "blue" -> Color(0xFF007AFF)
-        "green" -> Color(0xFF34C759)
+        "blue" -> Color(0xFF4CAF50) // Converted to green
+        "green" -> Color(0xFF4CAF50)
         "purple" -> Color(0xFFAF52DE)
         "red" -> Color(0xFFFF3B30)
-        else -> Color(0xFF007AFF)
+        else -> Color(0xFF4CAF50)
     }
     
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable {
-                // Navigate to project detail
-            },
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = cardBackground
         ),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+            defaultElevation = 4.dp,
+            pressedElevation = 6.dp
         )
     ) {
         Row(
@@ -388,7 +584,7 @@ fun ProjectCardView(
                     text = project.title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
+                    color = textColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -396,7 +592,7 @@ fun ProjectCardView(
                 Text(
                     text = project.description,
                     fontSize = 14.sp,
-                    color = Color.Gray,
+                    color = textSecondaryColor,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -416,21 +612,21 @@ fun ProjectCardView(
                                 .weight(1f)
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp))
-                                .background(Color(0xFF3A3A3C))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .fillMaxWidth(project.progressPercentage.toFloat())
                                     .clip(RoundedCornerShape(2.dp))
-                                    .background(Color(0xFF007AFF))
+                                    .background(Color(0xFF4CAF50))
                             )
                         }
                         
                         Text(
                             text = "${project.completedTasksCount}/${project.tasksCount}",
                             fontSize = 12.sp,
-                            color = Color.Gray,
+                            color = textSecondaryColor,
                             modifier = Modifier.widthIn(min = 30.dp)
                         )
                     }
@@ -441,9 +637,93 @@ fun ProjectCardView(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = textSecondaryColor,
                 modifier = Modifier.size(20.dp)
             )
         }
+    }
+}
+
+/**
+ * Animated wrapper for project cards with staggered entrance
+ */
+@Composable
+fun AnimatedProjectCard(
+    project: Project,
+    index: Int,
+    isNewlyAdded: Boolean = false,
+    isInitialLoad: Boolean = false,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    // İlk yüklemede false başla, diğer durumlarda true (animasyon olmasın)
+    var isVisible by remember(project.id) { mutableStateOf(!isInitialLoad) }
+    
+    // Trigger animation with staggered delay based on index or immediate for new projects
+    LaunchedEffect(project.id, isInitialLoad) {
+        if (isNewlyAdded) {
+            // New project: immediate animation with special effect
+            delay(50)
+            isVisible = true
+        } else if (isInitialLoad) {
+            // İlk yüklemede staggered animation
+            delay(550L + (index * 80L))
+            isVisible = true
+        } else {
+            // Scroll sırasında animasyon yok, direkt görünür
+            isVisible = true
+        }
+    }
+    
+    // Animated values with enhanced animation for newly added projects
+    val alpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = if (isNewlyAdded) {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        } else {
+            tween(durationMillis = 400, easing = FastOutSlowInEasing)
+        },
+        label = "cardAlpha"
+    )
+    
+    val offsetY by animateDpAsState(
+        targetValue = if (isVisible) 0.dp else if (isNewlyAdded) 30.dp else 20.dp,
+        animationSpec = if (isNewlyAdded) {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        } else {
+            tween(durationMillis = 400, easing = FastOutSlowInEasing)
+        },
+        label = "cardOffsetY"
+    )
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isVisible) 1f else if (isNewlyAdded) 0.8f else 0.95f,
+        animationSpec = if (isNewlyAdded) {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        } else {
+            tween(durationMillis = 400, easing = FastOutSlowInEasing)
+        },
+        label = "cardScale"
+    )
+    
+    Box(
+        modifier = modifier
+            .offset(y = offsetY)
+            .scale(scale)
+            .alpha(alpha)
+    ) {
+        ProjectCardView(
+            project = project,
+            onClick = onClick
+        )
     }
 }

@@ -3,19 +3,25 @@ package tr.edu.bilimankara20307006.taskflow
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import tr.edu.bilimankara20307006.taskflow.ui.auth.AuthViewModel
 import tr.edu.bilimankara20307006.taskflow.ui.auth.LoginScreen
+import tr.edu.bilimankara20307006.taskflow.ui.auth.SignUpScreen
 import tr.edu.bilimankara20307006.taskflow.ui.main.MainScreen
 import tr.edu.bilimankara20307006.taskflow.ui.theme.TaskFlowTheme
+import tr.edu.bilimankara20307006.taskflow.ui.theme.ThemeManager
 
 /**
  * MainActivity - Android uygulamasının giriş noktası
@@ -26,7 +32,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         setContent {
-            TaskFlowTheme {
+            val context = LocalContext.current
+            val themeManager = remember { ThemeManager.getInstance(context) }
+            
+            TaskFlowTheme(useDarkTheme = themeManager.isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -45,11 +54,60 @@ fun TaskFlowApp() {
     
     NavHost(
         navController = navController,
-        startDestination = "login"
+        startDestination = "login",
+        enterTransition = {
+            fadeIn(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + slideInHorizontally(
+                initialOffsetX = { it / 2 },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        },
+        exitTransition = {
+            fadeOut(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + slideOutHorizontally(
+                targetOffsetX = { -it / 2 },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        },
+        popEnterTransition = {
+            fadeIn(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + slideInHorizontally(
+                initialOffsetX = { -it / 2 },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        },
+        popExitTransition = {
+            fadeOut(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + slideOutHorizontally(
+                targetOffsetX = { it / 2 },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        }
     ) {
         composable("login") {
             LoginScreen(
                 authViewModel = authViewModel,
+                onNavigateToMain = {
+                    navController.navigate("main") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onNavigateToSignUp = {
+                    navController.navigate("signup")
+                }
+            )
+        }
+        
+        composable("signup") {
+            SignUpScreen(
+                authViewModel = authViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
                 onNavigateToMain = {
                     navController.navigate("main") {
                         popUpTo("login") { inclusive = true }
