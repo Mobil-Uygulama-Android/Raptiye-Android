@@ -4,19 +4,108 @@ iOS TaskFlow uygulamasının Android karşılığı. Proje yönetiminizi kolayla
 
 ## 🚀 Özellikler
 
-- ✅ **Güzel Login Ekranı** - iOS ile birebir aynı tasarım
-- ✅ **Gradient Background** - Mavi degradeli arkaplan
-- ✅ **Authentication** - Giriş/Kayıt işlemleri
-- ✅ **Task Management** - Görev ekleme, tamamlama
-- ✅ **Material Design 3** - Modern Android tasarımı
+### ✅ Tamamlanmış Özellikler
+
+#### 🔐 Authentication
+- Login ekranı (email/password)
+- Sign up ekranı
+- Otomatik oturum yönetimi
+- Mock authentication (Firebase entegrasyonu hazır)
+
+#### 📊 Proje Yönetimi
+- Proje listeleme (arama, filtreleme, sıralama)
+- Proje oluşturma ve düzenleme
+- Proje detay ekranı
+- Kanban panosu görünümü
+- Proje istatistikleri ve analytics
+
+#### ✅ Görev Yönetimi
+- Görev ekleme/düzenleme
+- Görev tamamlama
+- Görev detay görünümü
+- Yorum sistemi
+- Görev atama
+
+#### 👥 Takım Özellikleri
+- Takım üyesi ekleme
+- Takım lideri belirleme
+- Üye profilleri
+
+#### 🎨 UI/UX
+- Material Design 3
+- Dark/Light mode
+- Smooth animasyonlar
+- iOS benzeri tab bar
+- Gradient backgrounds
+- Türkçe/İngilizce dil desteği
 
 ## 🛠 Teknolojiler
 
-- **Kotlin** - Modern Android development
-- **Jetpack Compose** - UI framework
+### Core
+- **Kotlin** 1.9.0+ - Modern Android development
+- **Jetpack Compose** - Declarative UI framework
 - **Material Design 3** - Design system
+- **Coroutines & Flow** - Asynchronous programming
+
+### Android Jetpack
 - **Navigation Compose** - Ekran geçişleri
 - **ViewModel** - State management
+- **Lifecycle** - Lifecycle-aware components
+- **Activity Compose** - Compose integration
+
+### Mimari
+- **MVVM** (Model-View-ViewModel)
+- **Repository Pattern** (hazır)
+- **Singleton Pattern** (ThemeManager, LocalizationManager)
+- **State Management** with Flow
+
+### UI/UX
+- Compose animations
+- Material 3 theming
+- Custom tab bar
+- Responsive design
+
+## 📁 Proje Yapısı
+
+```
+app/src/main/java/tr/edu/bilimankara20307006/taskflow/
+├── data/
+│   └── model/
+│       ├── Comment.kt
+│       ├── Project.kt
+│       ├── ProjectAnalytics.kt
+│       ├── Task.kt
+│       └── User.kt
+├── ui/
+│   ├── analytics/
+│   │   └── ProjectAnalyticsScreen.kt
+│   ├── auth/
+│   │   ├── AuthViewModel.kt
+│   │   ├── LoginScreen.kt
+│   │   └── SignUpScreen.kt
+│   ├── localization/
+│   │   └── LocalizationManager.kt
+│   ├── main/
+│   │   ├── MainScreen.kt
+│   │   └── MainTabScreen.kt
+│   ├── profile/
+│   │   └── ProfileEditScreen.kt
+│   ├── project/
+│   │   ├── AddProjectDialog.kt
+│   │   ├── ProjectBoardScreen.kt
+│   │   ├── ProjectDetailScreen.kt
+│   │   └── ProjectListScreen.kt
+│   ├── settings/
+│   │   └── NotificationSettingsScreen.kt
+│   ├── task/
+│   │   └── TaskDetailScreen.kt
+│   └── theme/
+│       ├── Theme.kt
+│       ├── ThemeManager.kt
+│       └── Type.kt
+├── FirebaseManager.kt
+└── MainActivity.kt
+```
 
 ## 📱 Ekran Görüntüleri
 
@@ -34,21 +123,141 @@ iOS TaskFlow uygulamasının Android karşılığı. Proje yönetiminizi kolayla
 
 ## 🔧 Kurulum
 
-1. Android Studio'yu açın
-2. Projeyi clone edin
-3. Gradle sync yapın
-4. Emülatörde çalıştırın
+### Gereksinimler
+- Android Studio Hedgehog (2023.1.1) veya üzeri
+- JDK 17
+- Android SDK 24-35
+- Kotlin 1.9.0+
 
+### Adımlar
+
+1. **Projeyi Clone Edin**
 ```bash
-git clone https://github.com/Mobil-Uygulama-IOS/task-flow-3.git
-cd task-flow-3
-./gradlew installDebug
+git clone https://github.com/Mobil-Uygulama-Android/Task-Flow-Android.git
+cd Task-Flow-Android
 ```
 
-## 👥 Geliştirici Ekibi
+2. **Android Studio'da Açın**
+   - File → Open → Proje klasörünü seçin
+   - Gradle sync otomatik başlayacak
 
-Bu proje **Mobil-Uygulama-IOS** organizasyonu tarafından geliştirilmektedir.
+3. **Çalıştırın**
+   - Emülatör veya fiziksel cihaz seçin
+   - Run butonuna basın (Shift+F10)
+
+### Komut Satırından Çalıştırma
+```bash
+# Debug APK oluştur
+./gradlew assembleDebug
+
+# Cihaza yükle ve çalıştır
+./gradlew installDebug
+
+# Testleri çalıştır
+./gradlew test
+```
+
+## � Firebase Setup (Opsiyonel)
+
+Şu anda proje **mock data** ile çalışmaktadır. Firebase entegrasyonu için:
+
+### 1. Firebase Console'da Proje Oluşturun
+- [Firebase Console](https://console.firebase.google.com/) → Add Project
+- Android app ekleyin (package: `tr.edu.bilimankara20307006.taskflow`)
+
+### 2. google-services.json İndirin
+- Firebase Console → Project Settings → Download `google-services.json`
+- Dosyayı `app/` klasörüne kopyalayın
+
+### 3. Dependencies Ekleyin
+`build.gradle.kts` (project-level):
+```kotlin
+plugins {
+    id("com.google.gms.google-services") version "4.4.0" apply false
+}
+```
+
+`app/build.gradle.kts`:
+```kotlin
+plugins {
+    id("com.google.gms.google-services")
+}
+
+dependencies {
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+}
+```
+
+### 4. FirebaseManager'ı Güncelleyin
+`FirebaseManager.kt` dosyasındaki placeholder kodları gerçek Firebase kodu ile değiştirin.
+
+## 📱 Kullanım
+
+### Login Bilgileri (Mock Mode)
+- **Email:** herhangi bir email
+- **Password:** herhangi bir şifre (min 6 karakter)
+
+### Temel Özellikler
+1. **Projeler Tab:** Proje listesi, ekleme, düzenleme
+2. **Bildirimler Tab:** Bildirim merkezi
+3. **Ayarlar Tab:** Tema, dil, profil ayarları
+
+### Kısayollar
+- **Yeni Proje:** Projects ekranında yeşil + butonu
+- **Kanban Görünümü:** Projects ekranında board ikonu
+- **Analytics:** Projects ekranında chart ikonu
+- **Dark Mode:** Settings → Theme → Dark Theme
+
+## 🐛 Bilinen Sorunlar ve Çözümler
+
+### Gradle Sync Hatası
+```bash
+# Cache temizle
+./gradlew clean
+
+# Dependencies'leri güncelle
+./gradlew --refresh-dependencies
+```
+
+### Emülatör Çok Yavaş
+- AVD Manager → Hardware → Use Host GPU
+
+### Compose Preview Çalışmıyor
+- Build → Rebuild Project
+- File → Invalidate Caches and Restart
+
+## 🚀 Deployment
+
+### Debug APK
+```bash
+./gradlew assembleDebug
+# Output: app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Release APK
+```bash
+./gradlew assembleRelease
+# Not: Signing key gereklidir
+```
+
+## �👥 Geliştirici Ekibi
+
+Bu proje **Mobil-Uygulama-Android** organizasyonu tarafından geliştirilmektedir.
+
+### Katkıda Bulunanlar
+- UI/UX Implementation
+- Backend Integration (hazır)
+- Testing & QA
 
 ## 📝 Lisans
 
 Bu proje MIT lisansı altında lisanslanmıştır.
+
+## 🔗 Bağlantılar
+
+- [GitHub Repository](https://github.com/Mobil-Uygulama-Android/Task-Flow-Android)
+- [iOS Version](https://github.com/Mobil-Uygulama-IOS/task-flow-3)
+- [Firebase Documentation](https://firebase.google.com/docs/android/setup)
