@@ -7,17 +7,21 @@ iOS TaskFlow uygulamasının Android karşılığı. Proje yönetiminizi kolayla
 ### ✅ Tamamlanmış Özellikler
 
 #### 🔐 Authentication
-- Login ekranı (email/password)
-- Sign up ekranı
-- Otomatik oturum yönetimi
-- Mock authentication (Firebase entegrasyonu hazır)
+- ✅ Login ekranı (email/password)
+- ✅ Sign up ekranı
+- ✅ Otomatik oturum yönetimi
+- ✅ **Backend API entegrasyonu** (Node.js + MongoDB)
+- ✅ JWT token authentication
+- ✅ Şifreli token storage (EncryptedSharedPreferences)
 
 #### 📊 Proje Yönetimi
-- Proje listeleme (arama, filtreleme, sıralama)
-- Proje oluşturma ve düzenleme
-- Proje detay ekranı
-- Kanban panosu görünümü
-- Proje istatistikleri ve analytics
+- ✅ Proje listeleme (arama, filtreleme, sıralama)
+- ✅ **Backend'den gerçek zamanlı proje yükleme**
+- ✅ Proje oluşturma ve düzenleme
+- ✅ Proje detay ekranı
+- ✅ Kanban panosu görünümü
+- ✅ Proje istatistikleri ve analytics
+- ✅ Loading states ve error handling
 
 #### ✅ Görev Yönetimi
 - Görev ekleme/düzenleme
@@ -47,6 +51,21 @@ iOS TaskFlow uygulamasının Android karşılığı. Proje yönetiminizi kolayla
 - **Material Design 3** - Design system
 - **Coroutines & Flow** - Asynchronous programming
 
+### Networking
+- **Retrofit** 2.9.0 - HTTP client
+- **OkHttp** 4.12.0 - Network layer
+- **Gson** 2.10.1 - JSON serialization
+- **Logging Interceptor** - Network debugging
+
+### Security
+- **EncryptedSharedPreferences** - Secure token storage
+- **JWT Authentication** - Token-based auth
+
+### Backend
+- **Node.js + Express** - REST API server
+- **MongoDB Atlas** - Cloud database
+- **bcrypt** - Password hashing
+
 ### Android Jetpack
 - **Navigation Compose** - Ekran geçişleri
 - **ViewModel** - State management
@@ -55,9 +74,10 @@ iOS TaskFlow uygulamasının Android karşılığı. Proje yönetiminizi kolayla
 
 ### Mimari
 - **MVVM** (Model-View-ViewModel)
-- **Repository Pattern** (hazır)
-- **Singleton Pattern** (ThemeManager, LocalizationManager)
-- **State Management** with Flow
+- **Repository Pattern** - Data layer abstraction
+- **Singleton Pattern** (ThemeManager, LocalizationManager, TokenManager)
+- **State Management** with StateFlow
+- **Clean Architecture** - Separation of concerns
 
 ### UI/UX
 - Compose animations
@@ -70,12 +90,30 @@ iOS TaskFlow uygulamasının Android karşılığı. Proje yönetiminizi kolayla
 ```
 app/src/main/java/tr/edu/bilimankara20307006/taskflow/
 ├── data/
-│   └── model/
-│       ├── Comment.kt
-│       ├── Project.kt
-│       ├── ProjectAnalytics.kt
-│       ├── Task.kt
-│       └── User.kt
+│   ├── model/
+│   │   ├── Comment.kt
+│   │   ├── Project.kt
+│   │   ├── ProjectAnalytics.kt
+│   │   ├── Task.kt
+│   │   └── User.kt
+│   ├── network/
+│   │   ├── ApiConstants.kt
+│   │   ├── RetrofitClient.kt
+│   │   ├── api/
+│   │   │   ├── AuthApiService.kt
+│   │   │   ├── ProjectApiService.kt
+│   │   │   └── TaskApiService.kt
+│   │   └── model/
+│   │       ├── AuthModels.kt
+│   │       ├── ProjectModels.kt
+│   │       └── TaskModels.kt
+│   ├── repository/
+│   │   ├── NetworkResult.kt
+│   │   ├── AuthRepository.kt
+│   │   ├── ProjectRepository.kt
+│   │   └── TaskRepository.kt
+│   └── storage/
+│       └── TokenManager.kt
 ├── ui/
 │   ├── analytics/
 │   │   └── ProjectAnalyticsScreen.kt
@@ -94,7 +132,8 @@ app/src/main/java/tr/edu/bilimankara20307006/taskflow/
 │   │   ├── AddProjectDialog.kt
 │   │   ├── ProjectBoardScreen.kt
 │   │   ├── ProjectDetailScreen.kt
-│   │   └── ProjectListScreen.kt
+│   │   ├── ProjectListScreen.kt
+│   │   └── ProjectListViewModel.kt
 │   ├── settings/
 │   │   └── NotificationSettingsScreen.kt
 │   ├── task/
@@ -141,9 +180,51 @@ cd Task-Flow-Android
    - File → Open → Proje klasörünü seçin
    - Gradle sync otomatik başlayacak
 
-3. **Çalıştırın**
+3. **Backend Sunucusunu Başlatın** (Opsiyonel - Test kullanıcıları mevcuttur)
+   
+   iOS ekibinin backend'ini çalıştırın:
+   ```bash
+   cd project-auth-backend
+   npm install
+   node server.js
+   ```
+   
+   Sunucu `http://localhost:3000` adresinde çalışacak.
+
+4. **Android Uygulamasını Çalıştırın**
    - Emülatör veya fiziksel cihaz seçin
    - Run butonuna basın (Shift+F10)
+   
+5. **Giriş Yapın**
+   
+   Test kullanıcıları:
+   ```
+   Email: testuser@mail.com
+   Password: 123456
+   
+   veya
+   
+   Email: bilgehan@mail.com
+   Password: 123456
+   ```
+
+### Backend URL Yapılandırması
+
+Backend URL'sini değiştirmek için `ApiConstants.kt` dosyasını düzenleyin:
+
+```kotlin
+// Dosya: app/src/main/java/.../data/network/ApiConstants.kt
+
+object ApiConstants {
+    // Android Emülatör için:
+    const val BASE_URL = "http://10.0.2.2:3000/api/"
+    
+    // Gerçek cihaz için (Mac IP'nizi kullanın):
+    // const val BASE_URL = "http://192.168.1.X:3000/api/"
+}
+```
+
+**Detaylı backend entegrasyon rehberi için:** [BACKEND_INTEGRATION.md](BACKEND_INTEGRATION.md)
 
 ### Komut Satırından Çalıştırma
 ```bash

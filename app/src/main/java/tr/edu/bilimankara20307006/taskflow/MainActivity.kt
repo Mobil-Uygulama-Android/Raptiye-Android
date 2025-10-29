@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import tr.edu.bilimankara20307006.taskflow.data.storage.TokenManager
 import tr.edu.bilimankara20307006.taskflow.ui.auth.AuthViewModel
 import tr.edu.bilimankara20307006.taskflow.ui.auth.LoginScreen
 import tr.edu.bilimankara20307006.taskflow.ui.auth.SignUpScreen
@@ -30,6 +31,9 @@ import tr.edu.bilimankara20307006.taskflow.ui.theme.ThemeManager
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // TokenManager'ı initialize et
+        TokenManager.initialize(this)
         
         setContent {
             val context = LocalContext.current
