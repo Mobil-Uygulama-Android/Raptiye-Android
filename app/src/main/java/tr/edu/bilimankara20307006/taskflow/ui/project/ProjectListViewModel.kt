@@ -53,9 +53,12 @@ class ProjectListViewModel : ViewModel() {
                     )
                 }
                 is NetworkResult.Error -> {
+                    // GEÇİCİ: Backend yokken sample data kullan
+                    // TODO: Backend hazır olduğunda bu fallback'i kaldır
                     _state.value = _state.value.copy(
+                        projects = Project.sampleProjects, // Fallback to sample data
                         isLoading = false,
-                        errorMessage = result.message
+                        errorMessage = "Backend bağlantısı kurulamadı, örnek veriler gösteriliyor"
                     )
                 }
                 is NetworkResult.Loading -> {

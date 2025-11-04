@@ -117,11 +117,25 @@ class AuthViewModel : ViewModel() {
                     )
                 }
                 is NetworkResult.Error -> {
+                    // GEÇİCİ: Backend yokken mock authentication
+                    // TODO: Backend hazır olduğunda bu fallback'i kaldır
+                    val mockUser = User(
+                        uid = "mock_user_${System.currentTimeMillis()}",
+                        email = email,
+                        displayName = email.substringBefore("@"),
+                        photoUrl = null
+                    )
+                    
+                    // Mock token kaydet
+                    TokenManager.saveToken("mock_jwt_token_${System.currentTimeMillis()}")
+                    TokenManager.saveUserId(mockUser.uid)
+                    TokenManager.saveUserEmail(mockUser.email)
+                    
                     _authState.value = _authState.value.copy(
-                        isAuthenticated = false,
+                        isAuthenticated = true,
                         isLoading = false,
-                        user = null,
-                        errorMessage = result.message
+                        user = mockUser,
+                        errorMessage = "Backend bağlantısı kurulamadı, demo modda devam ediliyor"
                     )
                 }
                 is NetworkResult.Loading -> {
@@ -189,11 +203,25 @@ class AuthViewModel : ViewModel() {
                     )
                 }
                 is NetworkResult.Error -> {
+                    // GEÇİCİ: Backend yokken mock registration
+                    // TODO: Backend hazır olduğunda bu fallback'i kaldır
+                    val mockUser = User(
+                        uid = "mock_new_user_${System.currentTimeMillis()}",
+                        email = email,
+                        displayName = finalUsername,
+                        photoUrl = null
+                    )
+                    
+                    // Mock token kaydet
+                    TokenManager.saveToken("mock_jwt_token_${System.currentTimeMillis()}")
+                    TokenManager.saveUserId(mockUser.uid)
+                    TokenManager.saveUserEmail(mockUser.email)
+                    
                     _authState.value = _authState.value.copy(
-                        isAuthenticated = false,
+                        isAuthenticated = true,
                         isLoading = false,
-                        user = null,
-                        errorMessage = result.message
+                        user = mockUser,
+                        errorMessage = "Backend bağlantısı kurulamadı, demo modda kayıt yapıldı"
                     )
                 }
                 is NetworkResult.Loading -> {
