@@ -124,9 +124,13 @@ fun MainTabScreen(
     
     // Proje detay ekranı gösteriliyorsa (TAB BAR GİZLENİR)
     if (selectedProject != null) {
+        println("✅ ProjectDetailScreen açılıyor: ${selectedProject!!.title}")
         ProjectDetailScreen(
             project = selectedProject!!,
-            onBackClick = { selectedProject = null }
+            onBackClick = { 
+                println("⬅️ Geri butonu basıldı")
+                selectedProject = null 
+            }
         )
         return
     }
@@ -185,7 +189,10 @@ fun MainTabScreen(
                     onNavigateToBoard = { showProjectBoard = true },
                     onNavigateToAnalytics = { showAnalytics = true },
                     selectedProject = selectedProject,
-                    onProjectSelected = { selectedProject = it }
+                    onProjectSelected = { 
+                        println("🚀 Proje seçildi: ${it?.title}")
+                        selectedProject = it 
+                    }
                 )
                 1 -> NotificationsScreen(localizationManager = localizationManager)
                 2 -> SettingsScreen(

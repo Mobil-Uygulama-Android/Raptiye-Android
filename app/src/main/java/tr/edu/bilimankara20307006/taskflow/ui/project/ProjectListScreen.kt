@@ -3,6 +3,7 @@ package tr.edu.bilimankara20307006.taskflow.ui.project
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -18,6 +19,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -305,10 +307,10 @@ fun ProjectListScreen(
                         )
                     }
                     
-                    // Yeni Proje butonu
+                    // Yeni Proje Ekleme butonu
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(48.dp)
                             .scale(addButtonScale)
                             .background(Color(0xFF4CAF50), CircleShape)
                             .pointerInput(Unit) {
@@ -332,7 +334,7 @@ fun ProjectListScreen(
                             Icons.Default.Add,
                             contentDescription = localizationManager.localizedString("NewProject"),
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
@@ -540,7 +542,10 @@ fun ProjectListScreen(
                         index = index,
                         isNewlyAdded = project.id == newlyAddedProjectId,
                         isInitialLoad = isInitialLoad,
-                        onClick = { onProjectSelected(project) }
+                        onClick = { 
+                            println("🔥 Proje tıklandı: ${project.title}")
+                            onProjectSelected(project) 
+                        }
                     )
                 }
             }
