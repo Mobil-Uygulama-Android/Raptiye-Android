@@ -133,7 +133,7 @@ fun TaskDetailScreen(
                             unfocusedBorderColor = borderColor,
                             focusedTextColor = textColor,
                             unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF0A84FF)
+                            cursorColor = Color(0xFF4CAF50)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true
@@ -164,7 +164,7 @@ fun TaskDetailScreen(
                             unfocusedBorderColor = borderColor,
                             focusedTextColor = textColor,
                             unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF0A84FF)
+                            cursorColor = Color(0xFF4CAF50)
                         ),
                         shape = RoundedCornerShape(12.dp),
                         maxLines = 5
@@ -290,7 +290,7 @@ fun TaskDetailScreen(
                             unfocusedBorderColor = borderColor,
                             focusedTextColor = textColor,
                             unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF0A84FF)
+                            cursorColor = Color(0xFF4CAF50)
                         ),
                         shape = RoundedCornerShape(20.dp),
                         singleLine = true,
@@ -310,7 +310,7 @@ fun TaskDetailScreen(
                                     Icon(
                                         imageVector = Icons.Default.Send,
                                         contentDescription = "Send",
-                                        tint = Color(0xFF0A84FF)
+                                        tint = Color(0xFF4CAF50)
                                     )
                                 }
                             }

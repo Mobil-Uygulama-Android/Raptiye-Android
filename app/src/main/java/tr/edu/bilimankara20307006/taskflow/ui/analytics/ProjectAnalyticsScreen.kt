@@ -49,7 +49,7 @@ fun ProjectAnalyticsScreen(
     val darkBackground = MaterialTheme.colorScheme.background
     val cardBackground = MaterialTheme.colorScheme.surface
     val textColor = MaterialTheme.colorScheme.onBackground
-    val selectedTabColor = Color(0xFF0A84FF)
+    val selectedTabColor = Color(0xFF4CAF50)
     val unselectedTabColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     // Tab'lar
@@ -159,7 +159,7 @@ private fun CustomTabRow(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selectedColor = Color(0xFF0A84FF)
+    val selectedColor = Color(0xFF4CAF50)
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val tabBackground = MaterialTheme.colorScheme.surfaceVariant
     
@@ -340,7 +340,7 @@ private fun TaskCompletionRateCard(
                     label = localizationManager.localizedString("Completed"),
                     value = analytics.completedTasks,
                     maxValue = analytics.completedTasks + analytics.inProgressTasks + analytics.pendingTasks,
-                    color = Color(0xFF0A84FF),
+                    color = Color(0xFF4CAF50),
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -349,7 +349,7 @@ private fun TaskCompletionRateCard(
                     label = localizationManager.localizedString("InProgress"),
                     value = analytics.inProgressTasks,
                     maxValue = analytics.completedTasks + analytics.inProgressTasks + analytics.pendingTasks,
-                    color = Color(0xFF0A84FF),
+                    color = Color(0xFF4CAF50),
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -358,7 +358,7 @@ private fun TaskCompletionRateCard(
                     label = localizationManager.localizedString("Pending"),
                     value = analytics.pendingTasks,
                     maxValue = analytics.completedTasks + analytics.inProgressTasks + analytics.pendingTasks,
-                    color = Color(0xFF0A84FF).copy(alpha = 0.3f),
+                    color = Color(0xFF4CAF50).copy(alpha = 0.3f),
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -498,7 +498,7 @@ private fun LineChart(
     localizationManager: LocalizationManager,
     modifier: Modifier = Modifier
 ) {
-    val lineColor = Color(0xFF0A84FF)
+    val lineColor = Color(0xFF4CAF50)
     val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     Column(

@@ -45,7 +45,7 @@ fun ProjectBoardScreen(
     // Renk tanımları
     val darkBackground = MaterialTheme.colorScheme.background
     val cardBackground = MaterialTheme.colorScheme.surface
-    val selectedTabColor = Color(0xFF0A84FF)
+    val selectedTabColor = Color(0xFF4CAF50)
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
@@ -243,7 +243,7 @@ private fun TaskCard(
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        color = Color(0xFF0A84FF).copy(alpha = 0.2f),
+                        color = Color(0xFF4CAF50).copy(alpha = 0.2f),
                         shape = RoundedCornerShape(8.dp)
                     ),
                 contentAlignment = Alignment.Center
@@ -251,7 +251,7 @@ private fun TaskCard(
                 Icon(
                     imageVector = Icons.Default.List,
                     contentDescription = null,
-                    tint = Color(0xFF0A84FF),
+                    tint = Color(0xFF4CAF50),
                     modifier = Modifier.size(24.dp)
                 )
             }
