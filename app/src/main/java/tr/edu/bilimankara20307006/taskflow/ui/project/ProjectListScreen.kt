@@ -3,10 +3,8 @@ package tr.edu.bilimankara20307006.taskflow.ui.project
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,12 +18,12 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
@@ -46,6 +44,10 @@ fun ProjectListScreen(
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
     val coroutineScope = rememberCoroutineScope()
+    
+    // ViewModel
+    val viewModel: ProjectListViewModel = viewModel()
+    val state by viewModel.state.collectAsState()
     
     // Show add project dialog
     var showAddProjectDialog by remember { mutableStateOf(false) }
@@ -107,7 +109,17 @@ fun ProjectListScreen(
     var searchText by remember { mutableStateOf("") }
     var selectedSortOption by remember { mutableStateOf(localizationManager.localizedString("SortOptionDate")) }
     var selectedFilterOption by remember { mutableStateOf(localizationManager.localizedString("FilterOptionAll")) }
-    var projects by remember { mutableStateOf(Project.sampleProjects) }
+    
+    // Backend'den gelen projeler - state'ten al
+    val projects = state.projects
+    
+    // Hata mesajı göster
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let { error ->
+            // TODO: Snackbar veya Toast ile hata göster
+            println("Error: $error")
+        }
+    }
     
     // Button press animations
     var analyticsButtonPressed by remember { mutableStateOf(false) }
@@ -179,11 +191,27 @@ fun ProjectListScreen(
     val searchBackground = MaterialTheme.colorScheme.surfaceVariant
     val textColor = MaterialTheme.colorScheme.onBackground
     
+    // Snackbar host for error messages
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Hata mesajını Snackbar ile göster
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
+        }
+    }
+    
     // Show project detail screen if a project is selected
     if (selectedProject != null) {
         ProjectDetailScreen(
             project = selectedProject!!,
-            onBackClick = { onProjectSelected(null) }
+            onBackClick = {
+                selectedProject = null
+            }
         )
         return
     }
@@ -470,6 +498,34 @@ fun ProjectListScreen(
                     .alpha(titleAlpha)
             )
             
+            // Loading indicator
+            if (state.isLoading && projects.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            } else if (projects.isEmpty() && !state.isLoading) {
+                // Boş liste mesajı
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = localizationManager.localizedString("NoProjects"),
+                        color = textColor.copy(alpha = 0.6f),
+                        fontSize = 16.sp
+                    )
+                }
+            }
+            
             // Projects list
             LazyColumn(
                 modifier = Modifier
@@ -496,8 +552,17 @@ fun ProjectListScreen(
                 onDismiss = { showAddProjectDialog = false },
                 onProjectCreated = { newProject ->
                     coroutineScope.launch {
+                        // Backend'e yeni proje ekle
+                        viewModel.createProject(
+                            title = newProject.title,
+                            description = newProject.description,
+                            iconName = newProject.iconName,
+                            iconColor = newProject.iconColor,
+                            status = newProject.status,
+                            dueDate = newProject.dueDate
+                        )
+                        
                         newlyAddedProjectId = newProject.id
-                        projects = projects + newProject
                         showAddProjectDialog = false
                         
                         // Reset animation flag after animation completes
@@ -507,6 +572,14 @@ fun ProjectListScreen(
                 }
             )
         }
+        
+        // Snackbar for error messages
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 100.dp)
+        )
     }
 }
 
