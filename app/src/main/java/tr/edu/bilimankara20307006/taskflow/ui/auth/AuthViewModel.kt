@@ -6,10 +6,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import tr.edu.bilimankara20307006.taskflow.data.model.User
-import tr.edu.bilimankara20307006.taskflow.data.repository.AuthRepository
-import tr.edu.bilimankara20307006.taskflow.data.repository.NetworkResult
-import tr.edu.bilimankara20307006.taskflow.data.storage.TokenManager
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.auth.UserProfileChangeRequest
 
 data class AuthState(
     val isAuthenticated: Boolean = false,
@@ -20,60 +22,39 @@ data class AuthState(
 
 class AuthViewModel : ViewModel() {
     
-    private val authRepository = AuthRepository.getInstance()
+    private val auth: FirebaseAuth = Firebase.auth
     private val _authState = MutableStateFlow(AuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
     
     init {
-        // App başladığında token varsa otomatik login yap
+        // App başladığında mevcut kullanıcıyı kontrol et
         checkExistingSession()
     }
     
     /**
-     * Mevcut token'ı kontrol eder ve varsa kullanıcı bilgilerini yükler.
+     * Firebase'den mevcut kullanıcıyı kontrol eder.
      */
     private fun checkExistingSession() {
-        if (TokenManager.isLoggedIn()) {
-            viewModelScope.launch {
-                _authState.value = _authState.value.copy(isLoading = true)
-                
-                when (val result = authRepository.getCurrentUser()) {
-                    is NetworkResult.Success -> {
-                        val userResponse = result.data
-                        val user = User(
-                            uid = userResponse.id,
-                            email = userResponse.email,
-                            displayName = userResponse.displayName ?: userResponse.username,
-                            photoUrl = userResponse.photoUrl
-                        )
-                        
-                        _authState.value = _authState.value.copy(
-                            isAuthenticated = true,
-                            isLoading = false,
-                            user = user,
-                            errorMessage = null
-                        )
-                    }
-                    is NetworkResult.Error -> {
-                        // Token geçersiz/expired, logout yap
-                        TokenManager.clearToken()
-                        _authState.value = _authState.value.copy(
-                            isAuthenticated = false,
-                            isLoading = false,
-                            user = null
-                        )
-                    }
-                    is NetworkResult.Loading -> {
-                        // Bu durum normalde olmaz
-                    }
-                }
-            }
+        val firebaseUser = auth.currentUser
+        if (firebaseUser != null) {
+            val user = User(
+                uid = firebaseUser.uid,
+                email = firebaseUser.email ?: "",
+                displayName = firebaseUser.displayName ?: "Kullanıcı",
+                photoUrl = firebaseUser.photoUrl?.toString()
+            )
+            
+            _authState.value = _authState.value.copy(
+                isAuthenticated = true,
+                isLoading = false,
+                user = user,
+                errorMessage = null
+            )
         }
     }
     
     /**
-     * Kullanıcı girişi yapar.
-     * Backend'e POST /auth/login isteği gönderir.
+     * Firebase ile kullanıcı girişi yapar.
      */
     fun signIn(email: String, password: String) {
         viewModelScope.launch {
@@ -91,22 +72,17 @@ class AuthViewModel : ViewModel() {
                 return@launch
             }
             
-            // API call
-            when (val result = authRepository.login(email, password)) {
-                is NetworkResult.Success -> {
-                    val loginResponse = result.data
-                    
-                    // Token'ı kaydet
-                    TokenManager.saveToken(loginResponse.token)
-                    TokenManager.saveUserId(loginResponse.user.id)
-                    TokenManager.saveUserEmail(loginResponse.user.email)
-                    
-                    // User modelini oluştur
+            try {
+                // Firebase Authentication
+                val authResult = auth.signInWithEmailAndPassword(email, password).await()
+                val firebaseUser = authResult.user
+                
+                if (firebaseUser != null) {
                     val user = User(
-                        uid = loginResponse.user.id,
-                        email = loginResponse.user.email,
-                        displayName = loginResponse.user.displayName ?: loginResponse.user.username,
-                        photoUrl = loginResponse.user.photoUrl
+                        uid = firebaseUser.uid,
+                        email = firebaseUser.email ?: "",
+                        displayName = firebaseUser.displayName ?: "Kullanıcı",
+                        photoUrl = firebaseUser.photoUrl?.toString()
                     )
                     
                     _authState.value = _authState.value.copy(
@@ -115,39 +91,28 @@ class AuthViewModel : ViewModel() {
                         user = user,
                         errorMessage = null
                     )
-                }
-                is NetworkResult.Error -> {
-                    // GEÇİCİ: Backend yokken mock authentication
-                    // TODO: Backend hazır olduğunda bu fallback'i kaldır
-                    val mockUser = User(
-                        uid = "mock_user_${System.currentTimeMillis()}",
-                        email = email,
-                        displayName = email.substringBefore("@"),
-                        photoUrl = null
-                    )
                     
-                    // Mock token kaydet
-                    TokenManager.saveToken("mock_jwt_token_${System.currentTimeMillis()}")
-                    TokenManager.saveUserId(mockUser.uid)
-                    TokenManager.saveUserEmail(mockUser.email)
-                    
+                    println("✅ Giriş başarılı: ${user.displayName}")
+                    println("✅ User ID: ${user.uid}")
+                    println("✅ Email: ${user.email}")
+                } else {
                     _authState.value = _authState.value.copy(
-                        isAuthenticated = true,
                         isLoading = false,
-                        user = mockUser,
-                        errorMessage = "Backend bağlantısı kurulamadı, demo modda devam ediliyor"
+                        errorMessage = "Giriş başarısız"
                     )
                 }
-                is NetworkResult.Loading -> {
-                    // Bu durum manuel olarak handle edildi
-                }
+            } catch (e: Exception) {
+                println("❌ Giriş hatası: ${e.message}")
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    errorMessage = e.localizedMessage ?: "Giriş başarısız"
+                )
             }
         }
     }
     
     /**
-     * Yeni kullanıcı kaydı yapar.
-     * Backend'e POST /auth/register isteği gönderir.
+     * Firebase ile yeni kullanıcı kaydı yapar.
      */
     fun signUp(email: String, password: String, username: String? = null) {
         viewModelScope.launch {
@@ -177,22 +142,31 @@ class AuthViewModel : ViewModel() {
             val finalUsername = username?.takeIf { it.isNotEmpty() } 
                 ?: email.substringBefore("@")
             
-            // API call
-            when (val result = authRepository.register(email, password, finalUsername)) {
-                is NetworkResult.Success -> {
-                    val registerResponse = result.data
+            try {
+                println("📝 Kayıt denemesi")
+                println("   - Email: $email")
+                println("   - İsim: $finalUsername")
+                
+                // Firebase Authentication - Kullanıcı oluştur
+                val authResult = auth.createUserWithEmailAndPassword(email, password).await()
+                val firebaseUser = authResult.user
+                
+                if (firebaseUser != null) {
+                    println("✅ Firebase kullanıcı oluşturuldu: ${firebaseUser.uid}")
                     
-                    // Token'ı kaydet
-                    TokenManager.saveToken(registerResponse.token)
-                    TokenManager.saveUserId(registerResponse.user.id)
-                    TokenManager.saveUserEmail(registerResponse.user.email)
+                    // Display name güncelle
+                    val profileUpdates = UserProfileChangeRequest.Builder()
+                        .setDisplayName(finalUsername)
+                        .build()
                     
-                    // User modelini oluştur
+                    firebaseUser.updateProfile(profileUpdates).await()
+                    println("✅ Display name güncellendi: $finalUsername")
+                    
                     val user = User(
-                        uid = registerResponse.user.id,
-                        email = registerResponse.user.email,
-                        displayName = registerResponse.user.displayName ?: registerResponse.user.username,
-                        photoUrl = registerResponse.user.photoUrl
+                        uid = firebaseUser.uid,
+                        email = firebaseUser.email ?: "",
+                        displayName = finalUsername,
+                        photoUrl = firebaseUser.photoUrl?.toString()
                     )
                     
                     _authState.value = _authState.value.copy(
@@ -201,50 +175,95 @@ class AuthViewModel : ViewModel() {
                         user = user,
                         errorMessage = null
                     )
-                }
-                is NetworkResult.Error -> {
-                    // GEÇİCİ: Backend yokken mock registration
-                    // TODO: Backend hazır olduğunda bu fallback'i kaldır
-                    val mockUser = User(
-                        uid = "mock_new_user_${System.currentTimeMillis()}",
-                        email = email,
-                        displayName = finalUsername,
-                        photoUrl = null
-                    )
                     
-                    // Mock token kaydet
-                    TokenManager.saveToken("mock_jwt_token_${System.currentTimeMillis()}")
-                    TokenManager.saveUserId(mockUser.uid)
-                    TokenManager.saveUserEmail(mockUser.email)
-                    
+                    println("✅ Kayıt başarılı: $finalUsername")
+                    println("✅ User ID: ${user.uid}")
+                } else {
                     _authState.value = _authState.value.copy(
-                        isAuthenticated = true,
                         isLoading = false,
-                        user = mockUser,
-                        errorMessage = "Backend bağlantısı kurulamadı, demo modda kayıt yapıldı"
+                        errorMessage = "Kayıt başarısız"
                     )
                 }
-                is NetworkResult.Loading -> {
-                    // Bu durum manuel olarak handle edildi
-                }
+            } catch (e: Exception) {
+                println("❌ Kayıt hatası: ${e.message}")
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    errorMessage = e.localizedMessage ?: "Kayıt başarısız"
+                )
             }
         }
     }
     
     /**
-     * Kullanıcı çıkışı yapar.
-     * Token'ı siler ve state'i sıfırlar.
+     * Firebase'den kullanıcı çıkışı yapar.
      */
     fun signOut() {
         viewModelScope.launch {
-            // Backend'e logout isteği gönder (opsiyonel)
-            authRepository.logout()
+            try {
+                auth.signOut()
+                _authState.value = AuthState()
+                println("✅ Çıkış başarılı")
+            } catch (e: Exception) {
+                println("❌ Çıkış hatası: ${e.message}")
+                _authState.value = _authState.value.copy(
+                    errorMessage = e.localizedMessage
+                )
+            }
+        }
+    }
+    
+    /**
+     * Şifre sıfırlama e-postası gönderir.
+     */
+    fun resetPassword(email: String) {
+        viewModelScope.launch {
+            _authState.value = _authState.value.copy(
+                isLoading = true,
+                errorMessage = null
+            )
             
-            // Token'ı sil
-            TokenManager.clearToken()
-            
-            // State'i sıfırla
-            _authState.value = AuthState()
+            try {
+                auth.sendPasswordResetEmail(email).await()
+                println("✅ Şifre sıfırlama e-postası gönderildi: $email")
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    errorMessage = null
+                )
+            } catch (e: Exception) {
+                println("❌ Şifre sıfırlama hatası: ${e.message}")
+                _authState.value = _authState.value.copy(
+                    isLoading = false,
+                    errorMessage = e.localizedMessage
+                )
+            }
+        }
+    }
+    
+    /**
+     * Kullanıcının display name'ini günceller.
+     */
+    fun updateDisplayName(name: String) {
+        viewModelScope.launch {
+            try {
+                val currentUser = auth.currentUser
+                if (currentUser != null) {
+                    val profileUpdates = UserProfileChangeRequest.Builder()
+                        .setDisplayName(name)
+                        .build()
+                    
+                    currentUser.updateProfile(profileUpdates).await()
+                    
+                    // State'i güncelle
+                    _authState.value.user?.let { user ->
+                        val updatedUser = user.copy(displayName = name)
+                        _authState.value = _authState.value.copy(user = updatedUser)
+                    }
+                    
+                    println("✅ Display Name güncellendi: $name")
+                }
+            } catch (e: Exception) {
+                println("❌ Display Name güncelleme hatası: ${e.message}")
+            }
         }
     }
     

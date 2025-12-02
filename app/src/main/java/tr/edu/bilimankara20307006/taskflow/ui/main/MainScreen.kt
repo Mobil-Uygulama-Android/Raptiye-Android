@@ -6,8 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +37,7 @@ fun MainScreen(
     var tasks by remember {
         mutableStateOf(
             listOf(
-                Task("1", "Projeyi tamamla", "Android TaskFlow uygulamasını bitir"),
+                Task("1", "Projeyi tamamla", "Android Raptiye uygulamasını bitir"),
                 Task("2", "Sunumu hazırla", "Proje sunumunu PowerPoint'te hazırla"),
                 Task("3", "Kahve al", "Favori kahve dükkanından latte al", true)
             )
@@ -69,7 +69,7 @@ fun MainScreen(
                         }
                     ) {
                         Icon(
-                            Icons.Default.ExitToApp,
+                            Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "Çıkış Yap",
                             tint = Color(0xFF1E88E5)
                         )

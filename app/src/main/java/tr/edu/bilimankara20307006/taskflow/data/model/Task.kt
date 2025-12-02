@@ -67,7 +67,7 @@ data class Task(
                     title = "UI/UX Design for Mobile App",
                     description = "Create a modern and user-friendly interface for the new student project tracking application.",
                     assignee = user1,
-                    dueDate = Date(124, 6, 20), // 2024-07-20
+                    dueDate = Date(System.currentTimeMillis() + 20L * 24 * 60 * 60 * 1000), // 20 gün sonra
                     projectId = projectId,
                     comments = listOf(comment1, comment2)
                 ),
@@ -75,7 +75,7 @@ data class Task(
                     title = "Backend API Development",
                     description = "Develop RESTful API endpoints for project and task management.",
                     assignee = user2,
-                    dueDate = Date(124, 7, 15), // 2024-08-15
+                    dueDate = Date(System.currentTimeMillis() + 45L * 24 * 60 * 60 * 1000), // 45 gün sonra
                     projectId = projectId,
                     comments = emptyList()
                 ),
@@ -83,7 +83,7 @@ data class Task(
                     title = "Database Schema Design",
                     description = "Design and implement database schema for storing projects, tasks, and user data.",
                     assignee = user1,
-                    dueDate = Date(124, 6, 30), // 2024-07-30
+                    dueDate = Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000), // 30 gün sonra
                     projectId = projectId,
                     isCompleted = true,
                     comments = emptyList()

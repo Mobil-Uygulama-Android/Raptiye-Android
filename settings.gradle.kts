@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Task Flow"
+rootProject.name = "Raptiye"
 include(":app")

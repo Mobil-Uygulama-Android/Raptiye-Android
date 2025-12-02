@@ -212,7 +212,7 @@ fun ProjectListScreen(
         ProjectDetailScreen(
             project = selectedProject!!,
             onBackClick = {
-                selectedProject = null
+                onProjectSelected(null)
             }
         )
         return
@@ -563,8 +563,7 @@ fun ProjectListScreen(
                             description = newProject.description,
                             iconName = newProject.iconName,
                             iconColor = newProject.iconColor,
-                            status = newProject.status,
-                            dueDate = newProject.dueDate
+                            dueDate = newProject.dueDate?.toString()
                         )
                         
                         newlyAddedProjectId = newProject.id

@@ -266,7 +266,7 @@ Terminal'de:
 curl http://localhost:3000/api/health
 
 # Beklenen yanıt:
-# {"status":"OK","message":"Task Flow API is running"...}
+# {"status":"OK","message":"Raptiye API is running"...}
 ```
 
 ### 2. Login Test Et

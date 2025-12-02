@@ -26,7 +26,7 @@ import androidx.security.crypto.MasterKey
  * ```
  */
 object TokenManager {
-    private const val PREFS_NAME = "TaskFlowSecurePrefs"
+    private const val PREFS_NAME = "RaptiyeSecurePrefs"
     private const val KEY_JWT_TOKEN = "jwt_token"
     private const val KEY_USER_ID = "user_id"
     private const val KEY_USER_EMAIL = "user_email"

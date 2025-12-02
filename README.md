@@ -1,6 +1,6 @@
-# TaskFlow Android 📋
+# Raptiye Android 📋
 
-iOS TaskFlow uygulamasının Android karşılığı. Proje yönetiminizi kolaylaştırın!
+iOS Raptiye uygulamasının Android karşılığı. Proje yönetiminizi kolaylaştırın!
 
 ## 🚀 Özellikler
 
@@ -150,7 +150,7 @@ app/src/main/java/tr/edu/bilimankara20307006/taskflow/
 
 ### Login Ekranı
 - iOS ile birebir aynı mavi gradient
-- TaskFlow logosu ve welcome metinleri
+- Raptiye logosu ve welcome metinleri
 - Email/şifre input alanları
 - "Şifremi Unuttum?" linki
 

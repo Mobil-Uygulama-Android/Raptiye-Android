@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
+import tr.edu.bilimankara20307006.taskflow.data.model.ProjectStatus
 import tr.edu.bilimankara20307006.taskflow.data.network.model.ProjectResponse
 import tr.edu.bilimankara20307006.taskflow.data.repository.NetworkResult
 import tr.edu.bilimankara20307006.taskflow.data.repository.ProjectRepository
@@ -45,7 +46,7 @@ class ProjectListViewModel : ViewModel() {
             
             when (val result = projectRepository.getProjects()) {
                 is NetworkResult.Success -> {
-                    val projects = result.data.projects.map { it.toProject() }
+                    val projects = result.data.data.map { it.toProject() }
                     _state.value = _state.value.copy(
                         projects = projects,
                         isLoading = false,
@@ -77,7 +78,7 @@ class ProjectListViewModel : ViewModel() {
             
             when (val result = projectRepository.getProjects()) {
                 is NetworkResult.Success -> {
-                    val projects = result.data.projects.map { it.toProject() }
+                    val projects = result.data.data.map { it.toProject() }
                     _state.value = _state.value.copy(
                         projects = projects,
                         isRefreshing = false,
@@ -105,7 +106,6 @@ class ProjectListViewModel : ViewModel() {
         description: String,
         iconName: String = "folder",
         iconColor: String = "blue",
-        status: String = "Yapılacaklar",
         dueDate: String? = null
     ) {
         viewModelScope.launch {
@@ -116,7 +116,6 @@ class ProjectListViewModel : ViewModel() {
                 description = description,
                 iconName = iconName,
                 iconColor = iconColor,
-                status = status,
                 dueDate = dueDate
             )) {
                 is NetworkResult.Success -> {
@@ -219,16 +218,18 @@ class ProjectListViewModel : ViewModel() {
         return Project(
             id = this.id,
             title = this.title,
-            description = this.description ?: "",
+            description = this.description,
             iconName = this.iconName ?: "folder",
             iconColor = this.iconColor ?: "blue",
-            status = this.status ?: "Yapılacaklar",
-            dueDate = this.dueDate,
-            teamLeader = this.teamLeader,
-            teamMembers = this.teamMembers ?: emptyList(),
-            createdBy = this.createdBy,
-            createdAt = this.createdAt ?: "",
-            updatedAt = this.updatedAt ?: ""
+            status = when (this.status) {
+                "TODO" -> ProjectStatus.TODO
+                "IN_PROGRESS" -> ProjectStatus.IN_PROGRESS
+                "COMPLETED" -> ProjectStatus.COMPLETED
+                else -> ProjectStatus.TODO
+            },
+            isCompleted = this.isCompleted,
+            tasksCount = this.tasksCount,
+            completedTasksCount = this.completedTasksCount
         )
     }
 }

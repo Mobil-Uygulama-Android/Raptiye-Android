@@ -16,12 +16,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import tr.edu.bilimankara20307006.taskflow.data.storage.TokenManager
+import com.google.firebase.FirebaseApp
 import tr.edu.bilimankara20307006.taskflow.ui.auth.AuthViewModel
 import tr.edu.bilimankara20307006.taskflow.ui.auth.LoginScreen
 import tr.edu.bilimankara20307006.taskflow.ui.auth.SignUpScreen
 import tr.edu.bilimankara20307006.taskflow.ui.main.MainScreen
-import tr.edu.bilimankara20307006.taskflow.ui.theme.TaskFlowTheme
+import tr.edu.bilimankara20307006.taskflow.ui.theme.RaptiyeTheme
 import tr.edu.bilimankara20307006.taskflow.ui.theme.ThemeManager
 
 /**
@@ -32,19 +32,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // TokenManager'ı initialize et
-        TokenManager.initialize(this)
+        // Firebase'i initialize et
+        FirebaseApp.initializeApp(this)
+        println("🚀 MainActivity initialized")
+        println("🔥 Firebase initialized")
         
         setContent {
             val context = LocalContext.current
             val themeManager = remember { ThemeManager.getInstance(context) }
             
-            TaskFlowTheme(useDarkTheme = themeManager.isDarkMode) {
+            RaptiyeTheme(useDarkTheme = themeManager.isDarkMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    TaskFlowApp()
+                    RaptiyeApp()
                 }
             }
         }
@@ -52,7 +54,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun TaskFlowApp() {
+fun RaptiyeApp() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     

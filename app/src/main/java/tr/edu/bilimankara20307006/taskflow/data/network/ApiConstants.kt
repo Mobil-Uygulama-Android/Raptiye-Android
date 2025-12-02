@@ -19,6 +19,7 @@ object ApiConstants {
         // Auth endpoints
         const val REGISTER = "auth/register"
         const val LOGIN = "auth/login"
+        const val LOGOUT = "auth/logout"
         const val GET_CURRENT_USER = "auth/me"
         const val UPDATE_PROFILE = "auth/update"
         
@@ -35,12 +36,17 @@ object ApiConstants {
         
         // Task endpoints
         const val TASKS = "tasks"
+        const val TASKS_BY_PROJECT = "projects/{projectId}/tasks"
         const val TASK_BY_ID = "tasks/{id}"
         const val CREATE_TASK = "tasks"
         const val UPDATE_TASK = "tasks/{id}"
         const val DELETE_TASK = "tasks/{id}"
         const val TOGGLE_TASK = "tasks/{id}/toggle"
         const val ADD_COMMENT = "tasks/{id}/comments"
+        
+        // Comment endpoints
+        const val COMMENTS = "comments"
+        const val COMMENTS_BY_TASK = "tasks/{taskId}/comments"
         
         // Health check
         const val HEALTH = "health"

@@ -45,7 +45,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun TaskFlowTheme(
+fun RaptiyeTheme(
     useDarkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {

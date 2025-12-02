@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -140,7 +141,7 @@ fun NotificationSettingsScreen(
                             onClick = { notificationPreference = "all" }
                         )
                         
-                        Divider(color = textSecondaryColor.copy(alpha = 0.1f))
+                        HorizontalDivider(color = textSecondaryColor.copy(alpha = 0.1f))
                         
                         // Mentions only
                         NotificationPreferenceItem(
@@ -153,7 +154,7 @@ fun NotificationSettingsScreen(
                             onClick = { notificationPreference = "mentions" }
                         )
                         
-                        Divider(color = textSecondaryColor.copy(alpha = 0.1f))
+                        HorizontalDivider(color = textSecondaryColor.copy(alpha = 0.1f))
                         
                         // None
                         NotificationPreferenceItem(
@@ -193,12 +194,12 @@ fun NotificationSettingsScreen(
                         NotificationSoundItem(
                             title = if (localizationManager.currentLocale == "tr") 
                                 "Çal ve Titret" else "Ring and Vibrate",
-                            icon = Icons.Default.VolumeUp,
+                            icon = Icons.AutoMirrored.Filled.VolumeUp,
                             isSelected = notificationSound == "ring_vibrate",
                             onClick = { notificationSound = "ring_vibrate" }
                         )
                         
-                        Divider(color = textSecondaryColor.copy(alpha = 0.1f))
+                        HorizontalDivider(color = textSecondaryColor.copy(alpha = 0.1f))
                         
                         // Vibrate Only
                         NotificationSoundItem(

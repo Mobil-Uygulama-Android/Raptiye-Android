@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -583,28 +585,28 @@ fun SettingsScreen(
                         color = Color(0xFFFF9500),
                         onClick = { onNotificationSettingsClick() }
                     )
-                    Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                    HorizontalDivider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
                     SettingsRow(
                         icon = Icons.Default.DarkMode,
                         title = localizationManager.localizedString("DarkMode"),
                         color = Color(0xFFAF52DE),
                         onClick = { showThemeDialog = true }
                     )
-                    Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                    HorizontalDivider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
                     SettingsRow(
                         icon = Icons.Default.Language,
                         title = localizationManager.localizedString("Language"),
                         color = Color(0xFF4CAF50),
                         onClick = { showLanguageDialog = true }
                     )
-                    Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                    HorizontalDivider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
                     SettingsRow(
-                        icon = Icons.Default.Help,
+                        icon = Icons.AutoMirrored.Filled.Help,
                         title = localizationManager.localizedString("Help"),
                         color = Color(0xFF34C759),
                         onClick = { /* Yardım ekranı */ }
                     )
-                    Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                    HorizontalDivider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
                     SettingsRow(
                         icon = Icons.Default.Info,
                         title = localizationManager.localizedString("About"),
@@ -639,7 +641,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Default.ExitToApp,
+                    Icons.AutoMirrored.Filled.ExitToApp,
                     contentDescription = null,
                     tint = Color.Red,
                     modifier = Modifier.size(24.dp)
@@ -764,7 +766,7 @@ fun LanguageSelectionDialog(
                     onClick = { onLanguageSelected("tr") }
                 )
                 
-                Divider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
+                HorizontalDivider(color = Color(0xFF3A3A3C), thickness = 0.5.dp)
                 
                 LanguageOption(
                     language = localizationManager.localizedString("English"),
@@ -861,7 +863,7 @@ fun ThemeSelectionDialog(
                     onClick = { onThemeModeSelected(ThemeManager.THEME_SYSTEM) }
                 )
                 
-                Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                 
                 // Açık Tema
                 ThemeOption(
@@ -871,7 +873,7 @@ fun ThemeSelectionDialog(
                     onClick = { onThemeModeSelected(ThemeManager.THEME_LIGHT) }
                 )
                 
-                Divider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
                 
                 // Koyu Tema
                 ThemeOption(

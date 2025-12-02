@@ -137,7 +137,7 @@ fun AddProjectDialog(
                         }
                     }
                     
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     
                     // Content
                     LazyColumn(
@@ -365,7 +365,7 @@ fun AddProjectDialog(
                         }
                     }
                     
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     
                     // Footer Buttons
                     Row(
@@ -675,7 +675,7 @@ fun TeamSelectorDialog(
                     modifier = Modifier.padding(20.dp)
                 )
                 
-                Divider()
+                HorizontalDivider()
                 
                 LazyColumn(
                     modifier = Modifier.weight(1f),
@@ -751,7 +751,7 @@ fun TeamSelectorDialog(
                     }
                 }
                 
-                Divider()
+                HorizontalDivider()
                 
                 Row(
                     modifier = Modifier
