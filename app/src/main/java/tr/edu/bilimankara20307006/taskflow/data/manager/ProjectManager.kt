@@ -19,10 +19,10 @@ import tr.edu.bilimankara20307006.taskflow.data.model.Project
  * ProjectManager - iOS'taki ProjectManager.swift dosyasının Android karşılığı
  * Firestore ile proje yönetimi yapar
  */
-class ProjectManager : ViewModel() {
-    
-    private val auth: FirebaseAuth = Firebase.auth
+class ProjectManager(
+    private val auth: FirebaseAuth = Firebase.auth,
     private val db: FirebaseFirestore = Firebase.firestore
+) : ViewModel() {
     
     private val _projects = MutableStateFlow<List<Project>>(emptyList())
     val projects: StateFlow<List<Project>> = _projects.asStateFlow()

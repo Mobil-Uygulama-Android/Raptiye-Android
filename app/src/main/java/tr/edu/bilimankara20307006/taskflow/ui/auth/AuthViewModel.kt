@@ -20,9 +20,10 @@ data class AuthState(
     val errorMessage: String? = null
 )
 
-class AuthViewModel : ViewModel() {
-    
+class AuthViewModel(
     private val auth: FirebaseAuth = Firebase.auth
+) : ViewModel() {
+    
     private val _authState = MutableStateFlow(AuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
     

@@ -1,0 +1,149 @@
+name: Android CI/CD
+
+# iOS ekibinin workflow'una benzer şekilde her push ve PR'da çalışır
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    # ✅ Kod checkout
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    # ✅ JDK 17 kurulumu (Android için)
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+        
+    # ✅ Android SDK kurulumu
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    # ✅ Gradle wrapper'a execute yetkisi ver
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    # ✅ Gradle cache
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+          
+    # ✅ google-services.json kontrolü (Firebase için)
+    # Not: google-services.json dosyası app/ klasöründe olmalı
+    - name: Check google-services.json
+      run: |
+        if [ -f "app/google-services.json" ]; then
+          echo "✅ google-services.json found"
+        else
+          echo "⚠️ google-services.json not found, Firebase features may not work"
+        fi
+      
+    # ✅ Gradle dependencies indir
+    - name: Download dependencies
+      run: ./gradlew dependencies
+      
+    # ✅ Lint kontrolü
+    - name: Run Lint
+      run: ./gradlew lintDebug
+      
+    # ✅ Unit testleri çalıştır
+    - name: Run Unit Tests
+      run: ./gradlew testDebugUnitTest
+      
+    # ✅ Test raporlarını yükle
+    - name: Upload Unit Test Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: unit-test-results
+        path: |
+          **/build/reports/tests/
+          **/build/test-results/
+          
+    # ✅ Debug APK build et
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+      
+    # ✅ APK'yı artifact olarak yükle
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: debug-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
+        
+    # ✅ Build başarılı bildirimi
+    - name: Build Success
+      if: success()
+      run: echo "✅ Android build and tests completed successfully!"
+      
+    # ✅ Build başarısız bildirimi
+    - name: Build Failed
+      if: failure()
+      run: echo "❌ Android build or tests failed!"
+
+  # ✅ Instrumented Tests (Emulator'da UI testleri)
+  # Not: Bu job uzun sürebildiği için opsiyoneldir
+  instrumented-tests:
+    name: Instrumented Tests
+    runs-on: macos-latest
+    # Manuel tetikleme için comment out edilebilir
+    # if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+        
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    # ✅ google-services.json kontrolü
+    - name: Check google-services.json
+      run: |
+        if [ -f "app/google-services.json" ]; then
+          echo "✅ google-services.json found"
+        else
+          echo "⚠️ google-services.json not found, Firebase features may not work"
+        fi
+      
+    # ✅ Android Emulator'da testleri çalıştır
+    - name: Run Instrumented Tests
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 29
+        target: default
+        arch: x86_64
+        profile: Nexus 6
+        script: ./gradlew connectedDebugAndroidTest
+        
+    # ✅ UI test raporlarını yükle
+    - name: Upload Instrumented Test Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: instrumented-test-results
+        path: |
+          **/build/reports/androidTests/
+          **/build/outputs/androidTest-results/
