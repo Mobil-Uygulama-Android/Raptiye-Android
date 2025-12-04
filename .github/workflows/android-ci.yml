@@ -48,8 +48,8 @@ jobs:
     - name: Create google-services.json
       run: |
         mkdir -p app
-        # Firebase olmadan build etmek için google-services plugin'ini devre dışı bırak
-        echo "Skipping Firebase configuration for CI build"
+        # Dummy google-services.json oluştur
+        echo '{"project_info":{"project_id":"dummy"},"client":[{"client_info":{"android_client_info":{"package_name":"tr.edu.bilimankara20307006.taskflow"}}}]}' > app/google-services.json
         echo '{"project_info":{"project_number":"123456789","project_id":"taskflow-test"}}' > app/google-services.json
         echo "✅ google-services.json created for CI"
       
@@ -61,9 +61,9 @@ jobs:
     - name: Run Lint
       run: ./gradlew lintDebug
       
-    # ✅ Unit testleri çalıştır (Firebase olmadan)
+    # ✅ Unit testleri çalıştır
     - name: Run Unit Tests
-      run: ./gradlew testDebugUnitTest --stacktrace -PdisableFirebase=true
+      run: ./gradlew testDebugUnitTest --stacktrace
       continue-on-error: false
       
     # ✅ Unit test sonuçlarını yükle
@@ -76,9 +76,9 @@ jobs:
           **/build/reports/tests/
           **/build/test-results/
           
-    # ✅ Debug APK build et (Firebase olmadan)
+    # ✅ Debug APK build et
     - name: Build Debug APK
-      run: ./gradlew assembleDebug -PdisableFirebase=true
+      run: ./gradlew assembleDebug
       
     # ✅ APK'yı artifact olarak yükle
     - name: Upload Debug APK

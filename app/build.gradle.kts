@@ -2,10 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    // Firebase sadece CI'da değilse
-    if (!project.hasProperty("disableFirebase")) {
-        alias(libs.plugins.google.services)
-    }
+    id("com.google.gms.google-services") version "4.4.0" apply false
 }
 
 android {
@@ -101,12 +98,10 @@ dependencies {
     // Security - Encrypted SharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
-    // Firebase (CI'da devre dışı)
-    if (!project.hasProperty("disableFirebase")) {
-        implementation(platform(libs.firebase.bom))
-        implementation(libs.firebase.auth)
-        implementation(libs.firebase.firestore)
-    }
+    // Firebase - CI'da çalışır ama dummy config ile
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
     
     // Testing
     testImplementation(libs.junit)
@@ -124,4 +119,9 @@ dependencies {
     
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// Firebase plugin'ini sadece google-services.json varsa apply et
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
