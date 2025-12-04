@@ -35,7 +35,7 @@ jobs:
       
     # ✅ Gradle cache
     - name: Cache Gradle packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.gradle/caches
@@ -95,9 +95,9 @@ jobs:
       run: ./gradlew testDebugUnitTest --stacktrace
       continue-on-error: false
       
-    # ✅ Test raporlarını yükle
+    # ✅ Unit test sonuçlarını yükle
     - name: Upload Unit Test Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: unit-test-results
@@ -111,7 +111,7 @@ jobs:
       
     # ✅ APK'yı artifact olarak yükle
     - name: Upload Debug APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
@@ -170,7 +170,7 @@ jobs:
         
     # ✅ UI test raporlarını yükle
     - name: Upload Instrumented Test Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: instrumented-test-results
