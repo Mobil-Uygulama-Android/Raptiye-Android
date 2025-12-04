@@ -1,13 +1,11 @@
 name: Android CI/CD
 
 # iOS ekibinin workflow'una benzer şekilde her push ve PR'da çalışır
-# Geçici olarak devre dışı - ödev teslimi için
 on:
-  workflow_dispatch:  # Manuel çalıştırma
-  # push:
-  #   branches: [ main, develop ]
-  # pull_request:
-  #   branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
 
 jobs:
   build-and-test:
@@ -101,7 +99,7 @@ jobs:
   instrumented-tests:
     name: Instrumented Tests
     runs-on: macos-latest
-    # if: false  # UI testlerini şimdilik devre dışı bırak
+    needs: build-and-test  # Unit testler geçerse çalış
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
@@ -131,11 +129,13 @@ jobs:
     - name: Run Instrumented Tests
       uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: 29
-        target: default
+        api-level: 30
+        target: google_apis
         arch: x86_64
         profile: Nexus 6
-        script: ./gradlew connectedDebugAndroidTest
+        disable-animations: true
+        emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+        script: ./gradlew connectedDebugAndroidTest --stacktrace
         
     # ✅ UI test raporlarını yükle
     - name: Upload Instrumented Test Results
