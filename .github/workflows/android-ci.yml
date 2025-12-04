@@ -90,12 +90,16 @@ jobs:
     # ✅ Build başarılı bildirimi
     - name: Build Success
       if: success()
-      run: echo "✅ Android build and tests completed successfully!"
+      run: |
+        echo "✅ Android build and tests completed successfully!"
+        exit 0
       
-    # ✅ Build başarısız bildirimi
+    # ✅ Build başarısız bildirimi  
     - name: Build Failed
       if: failure()
-      run: echo "❌ Android build or tests failed!"
+      run: |
+        echo "❌ Android build or tests failed!"
+        exit 1
   # ✅ Instrumented Tests (Emulator'da UI testleri)
   # Not: UI testleri opsiyonel - manuel tetikleme için
   instrumented-tests:
