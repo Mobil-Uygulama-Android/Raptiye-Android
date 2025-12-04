@@ -2,7 +2,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services") version "4.4.0" apply false
 }
 
 android {
@@ -123,5 +122,5 @@ dependencies {
 
 // Firebase plugin'ini sadece google-services.json varsa apply et
 if (file("google-services.json").exists()) {
-    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = libs.plugins.google.services.get().pluginId)
 }
