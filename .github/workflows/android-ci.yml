@@ -87,19 +87,7 @@ jobs:
         name: debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
         
-    # ✅ Build başarılı bildirimi
-    - name: Build Success
-      if: success()
-      run: |
-        echo "✅ Android build and tests completed successfully!"
-        exit 0
-      
-    # ✅ Build başarısız bildirimi  
-    - name: Build Failed
-      if: failure()
-      run: |
-        echo "❌ Android build or tests failed!"
-        exit 1
+    # Build completed - no additional steps needed
   # ✅ Instrumented Tests (Emulator'da UI testleri)
   # Not: UI testleri opsiyonel - manuel tetikleme için
   instrumented-tests:
