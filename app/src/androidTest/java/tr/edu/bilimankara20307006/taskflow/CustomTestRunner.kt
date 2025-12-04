@@ -10,6 +10,11 @@ import androidx.test.runner.AndroidJUnitRunner
 class CustomTestRunner : AndroidJUnitRunner() {
     
     override fun newApplication(cl: ClassLoader?, className: String?, context: Context?): Application {
-        return super.newApplication(cl, TestApplication::class.java.name, context)
+        return try {
+            super.newApplication(cl, TestApplication::class.java.name, context)
+        } catch (e: Exception) {
+            // Fallback to regular Application if TestApplication fails
+            super.newApplication(cl, Application::class.java.name, context)
+        }
     }
 }

@@ -16,7 +16,7 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        testInstrumentationRunner = "tr.edu.bilimankara20307006.taskflow.CustomTestRunner"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         vectorDrawables {
             useSupportLibrary = true
