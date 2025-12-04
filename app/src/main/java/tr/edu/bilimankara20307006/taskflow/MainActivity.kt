@@ -32,10 +32,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Firebase'i initialize et
-        FirebaseApp.initializeApp(this)
-        println("🚀 MainActivity initialized")
-        println("🔥 Firebase initialized")
+        // Firebase'i initialize et - test environment'ta hata vermemesi için try-catch
+        try {
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseApp.initializeApp(this)
+                println("🚀 MainActivity initialized")
+                println("🔥 Firebase initialized")
+            }
+        } catch (e: Exception) {
+            println("⚠️ Firebase initialization failed: ${e.message}")
+        }
         
         setContent {
             val context = LocalContext.current

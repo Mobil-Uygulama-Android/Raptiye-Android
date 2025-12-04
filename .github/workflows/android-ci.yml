@@ -44,15 +44,12 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
           
-    # ✅ google-services.json kontrolü (Firebase için)
-    # Not: google-services.json dosyası app/ klasöründe olmalı
-    - name: Check google-services.json
+    # ✅ google-services.json kontrolü ve oluşturma (Firebase için)
+    - name: Create google-services.json
       run: |
-        if [ -f "app/google-services.json" ]; then
-          echo "✅ google-services.json found"
-        else
-          echo "⚠️ google-services.json not found, Firebase features may not work"
-        fi
+        mkdir -p app
+        echo '{"project_info":{"project_number":"123456789","project_id":"taskflow-test"}}' > app/google-services.json
+        echo "✅ google-services.json created for CI"
       
     # ✅ Gradle dependencies indir
     - name: Download dependencies
@@ -64,7 +61,8 @@ jobs:
       
     # ✅ Unit testleri çalıştır
     - name: Run Unit Tests
-      run: ./gradlew testDebugUnitTest
+      run: ./gradlew testDebugUnitTest --stacktrace
+      continue-on-error: false
       
     # ✅ Test raporlarını yükle
     - name: Upload Unit Test Results
@@ -96,14 +94,13 @@ jobs:
     - name: Build Failed
       if: failure()
       run: echo "❌ Android build or tests failed!"
-
   # ✅ Instrumented Tests (Emulator'da UI testleri)
-  # Not: Bu job uzun sürebildiği için opsiyoneldir
+  # Not: UI testleri opsiyonel - manuel tetikleme için
   instrumented-tests:
     name: Instrumented Tests
     runs-on: macos-latest
-    # Manuel tetikleme için comment out edilebilir
-    # if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # if: false  # UI testlerini şimdilik devre dışı bırak
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout repository
