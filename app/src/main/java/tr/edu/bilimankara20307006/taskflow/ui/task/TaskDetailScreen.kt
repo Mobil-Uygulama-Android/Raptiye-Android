@@ -23,10 +23,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import tr.edu.bilimankara20307006.taskflow.data.model.Comment
 import tr.edu.bilimankara20307006.taskflow.data.model.Task
 import tr.edu.bilimankara20307006.taskflow.data.model.User
+import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 
 /**
  * Görev Detay Ekranı
@@ -39,6 +41,10 @@ fun TaskDetailScreen(
     onBackClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale
+    
     // Renk tanımları
     val darkBackground = MaterialTheme.colorScheme.background
     val cardBackground = MaterialTheme.colorScheme.surface
@@ -81,7 +87,7 @@ fun TaskDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Task Details",
+                        text = localizationManager.localizedString("TaskDetails"),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = textColor
@@ -91,7 +97,7 @@ fun TaskDetailScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Geri",
+                            contentDescription = localizationManager.localizedString("Back"),
                             tint = textColor
                         )
                     }
@@ -117,7 +123,7 @@ fun TaskDetailScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Title",
+                        text = localizationManager.localizedString("TaskTitle"),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColor
@@ -146,7 +152,7 @@ fun TaskDetailScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Description",
+                        text = localizationManager.localizedString("Description"),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColor
@@ -177,7 +183,7 @@ fun TaskDetailScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Assignee",
+                        text = localizationManager.localizedString("Assignee"),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColor
@@ -214,7 +220,7 @@ fun TaskDetailScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = "Due Date",
+                        text = localizationManager.localizedString("DueDate"),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColor
@@ -248,7 +254,7 @@ fun TaskDetailScreen(
             // Comments Section
             item {
                 Text(
-                    text = "Comments",
+                    text = localizationManager.localizedString("Comments"),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = textColor
@@ -280,7 +286,7 @@ fun TaskDetailScreen(
                         modifier = Modifier.weight(1f),
                         placeholder = {
                             Text(
-                                text = "Add a comment...",
+                                text = localizationManager.localizedString("AddComment"),
                                 color = textSecondaryColor
                             )
                         },

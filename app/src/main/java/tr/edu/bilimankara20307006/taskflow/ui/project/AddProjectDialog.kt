@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.SelectableDates
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +26,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
 import tr.edu.bilimankara20307006.taskflow.data.model.User
 import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
@@ -39,10 +44,11 @@ import java.util.*
 @Composable
 fun AddProjectDialog(
     onDismiss: () -> Unit,
-    onProjectCreated: (Project) -> Unit
+    onProjectCreated: (Project, List<String>) -> Unit
 ) {
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale // Force recomposition on locale change
     
     // Form states
     var projectTitle by remember { mutableStateOf("") }
@@ -52,8 +58,6 @@ fun AddProjectDialog(
     var selectedTeamMembers by remember { mutableStateOf<List<User>>(emptyList()) }
     var teamLeader by remember { mutableStateOf<User?>(null) }
     var showTeamSelector by remember { mutableStateOf(false) }
-    var tasks by remember { mutableStateOf<List<TaskItem>>(emptyList()) }
-    var showAddTask by remember { mutableStateOf(false) }
     
     // Animation states
     var dialogVisible by remember { mutableStateOf(false) }
@@ -266,11 +270,11 @@ fun AddProjectDialog(
                                     ) {
                                         Icon(
                                             Icons.Default.Add,
-                                            contentDescription = "Ekle",
+                                            contentDescription = localizationManager.localizedString("Add"),
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Üye Ekle", fontSize = 14.sp)
+                                        Text(localizationManager.localizedString("AddMember"), fontSize = 14.sp)
                                     }
                                 }
                                 
@@ -281,7 +285,7 @@ fun AddProjectDialog(
                                         shape = RoundedCornerShape(12.dp)
                                     ) {
                                         Text(
-                                            text = "Henüz takım üyesi eklenmedi",
+                                            text = localizationManager.localizedString("NoTeamMembers"),
                                             modifier = Modifier.padding(16.dp),
                                             color = textSecondaryColor,
                                             fontSize = 14.sp
@@ -304,65 +308,7 @@ fun AddProjectDialog(
                                 }
                             }
                         }
-                        
-                        // Görevler
-                        item {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Görevler",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = textColor
-                                    )
-                                    
-                                    Button(
-                                        onClick = { showAddTask = true },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFF34C759)
-                                        ),
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Add,
-                                            contentDescription = "Ekle",
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Görev Ekle", fontSize = 14.sp)
-                                    }
-                                }
-                                
-                                if (tasks.isEmpty()) {
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = inputBackground,
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Text(
-                                            text = "Henüz görev eklenmedi",
-                                            modifier = Modifier.padding(16.dp),
-                                            color = textSecondaryColor,
-                                            fontSize = 14.sp
-                                        )
-                                    }
-                                } else {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        tasks.forEach { task ->
-                                            TaskItemCard(
-                                                task = task,
-                                                onRemove = { tasks = tasks - task }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+
                     }
                     
                     HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
@@ -396,11 +342,12 @@ fun AddProjectDialog(
                                         description = projectDescription,
                                         iconName = "folder",
                                         iconColor = "green",
-                                        dueDate = selectedDate ?: Date(),
-                                        tasksCount = tasks.size,
+                                        dueDate = selectedDate?.toString(),
+                                        tasksCount = 0,
                                         completedTasksCount = 0
                                     )
-                                    onProjectCreated(newProject)
+                                    val memberIds = selectedTeamMembers.map { it.uid }
+                                    onProjectCreated(newProject, memberIds)
                                     dialogVisible = false
                                 }
                             },
@@ -441,26 +388,9 @@ fun AddProjectDialog(
             )
         }
         
-        // Add Task Dialog
-        if (showAddTask) {
-            AddTaskDialog(
-                teamMembers = selectedTeamMembers,
-                onDismiss = { showAddTask = false },
-                onTaskAdded = { task ->
-                    tasks = tasks + task
-                    showAddTask = false
-                }
-            )
-        }
+
     }
 }
-
-// Task Item Data Class
-data class TaskItem(
-    val title: String,
-    val description: String,
-    val assignedTo: User?
-)
 
 @Composable
 fun TeamMemberCard(
@@ -496,7 +426,7 @@ fun TeamMemberCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = member.displayName.firstOrNull()?.uppercase() ?: "U",
+                        text = member.displayName?.firstOrNull()?.uppercase() ?: "U",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF4CAF50)
@@ -505,13 +435,13 @@ fun TeamMemberCard(
                 
                 Column {
                     Text(
-                        text = member.displayName,
+                        text = member.displayName ?: "Unknown",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = textColor
                     )
                     Text(
-                        text = member.email,
+                        text = member.email ?: "",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -556,69 +486,20 @@ fun TeamMemberCard(
     }
 }
 
-@Composable
-fun TaskItemCard(
-    task: TaskItem,
-    onRemove: () -> Unit
-) {
-    val cardBackground = MaterialTheme.colorScheme.surfaceVariant
-    val textColor = MaterialTheme.colorScheme.onSurface
-    
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = cardBackground,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = task.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = textColor
-                )
-                if (task.description.isNotBlank()) {
-                    Text(
-                        text = task.description,
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                task.assignedTo?.let { user ->
-                    Text(
-                        text = "Atanan: ${user.displayName}",
-                        fontSize = 12.sp,
-                        color = Color(0xFF4CAF50),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-            
-            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Close,
-                    contentDescription = "Kaldır",
-                    tint = Color(0xFFFF3B30),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DatePickerDialog(
     onDismiss: () -> Unit,
     onDateSelected: (Date) -> Unit
 ) {
-    val datePickerState = rememberDatePickerState()
+    val datePickerState = rememberDatePickerState(
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                // Sadece bugün ve sonraki günleri seçilebilir yap
+                return utcTimeMillis >= System.currentTimeMillis() - 86400000 // 24 saat tolerans
+            }
+        }
+    )
     
     DatePickerDialog(
         onDismissRequest = onDismiss,
@@ -647,18 +528,13 @@ fun TeamSelectorDialog(
     onDismiss: () -> Unit,
     onMembersSelected: (List<User>) -> Unit
 ) {
-    // Sample team members
-    val availableMembers = remember {
-        listOf(
-            User("1", "Ahmet Yılmaz", "ahmet@example.com"),
-            User("2", "Ayşe Demir", "ayse@example.com"),
-            User("3", "Mehmet Kaya", "mehmet@example.com"),
-            User("4", "Fatma Çelik", "fatma@example.com"),
-            User("5", "Ali Yıldız", "ali@example.com")
-        )
-    }
-    
     var tempSelectedMembers by remember { mutableStateOf(selectedMembers) }
+    var searchEmail by remember { mutableStateOf("") }
+    var searchedUser by remember { mutableStateOf<User?>(null) }
+    var isSearching by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val repository = remember { tr.edu.bilimankara20307006.taskflow.data.repository.ProjectRepository.getInstance() }
     
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -669,7 +545,7 @@ fun TeamSelectorDialog(
         ) {
             Column {
                 Text(
-                    text = "Takım Üyesi Seç",
+                    text = "Takım Üyesi Ekle",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(20.dp)
@@ -677,29 +553,64 @@ fun TeamSelectorDialog(
                 
                 HorizontalDivider()
                 
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(availableMembers) { member ->
-                        val isSelected = tempSelectedMembers.contains(member)
-                        
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    tempSelectedMembers = if (isSelected) {
-                                        tempSelectedMembers - member
+                    // Email arama
+                    OutlinedTextField(
+                        value = searchEmail,
+                        onValueChange = { searchEmail = it },
+                        label = { Text("E-posta Adresi") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                    )
+                    
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isSearching = true
+                                errorMessage = null
+                                val result = repository.searchUserByEmail(searchEmail.trim())
+                                result.onSuccess { user ->
+                                    if (user != null) {
+                                        searchedUser = user
                                     } else {
-                                        tempSelectedMembers + member
+                                        errorMessage = "Kullanıcı bulunamadı"
                                     }
-                                },
-                            color = if (isSelected) {
-                                Color(0xFF4CAF50).copy(alpha = 0.1f)
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            },
+                                }.onFailure { error ->
+                                    errorMessage = error.message
+                                }
+                                isSearching = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = searchEmail.isNotBlank() && !isSearching
+                    ) {
+                        if (isSearching) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                        } else {
+                            Text("Kullanıcı Ara")
+                        }
+                    }
+                    
+                    // Hata mesajı
+                    errorMessage?.let { error ->
+                        Text(
+                            text = error,
+                            color = Color.Red,
+                            fontSize = 14.sp
+                        )
+                    }
+                    
+                    // Aranan kullanıcı
+                    searchedUser?.let { user ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Row(
@@ -718,7 +629,7 @@ fun TeamSelectorDialog(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = member.displayName.firstOrNull()?.uppercase() ?: "U",
+                                            text = user.displayName?.firstOrNull()?.uppercase() ?: "U",
                                             fontSize = 18.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFF4CAF50)
@@ -727,24 +638,99 @@ fun TeamSelectorDialog(
                                     
                                     Column {
                                         Text(
-                                            text = member.displayName,
+                                            text = user.displayName ?: "Unknown",
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
-                                            text = member.email,
+                                            text = user.email ?: "",
                                             fontSize = 12.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
                                 
-                                if (isSelected) {
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = "Seçildi",
-                                        tint = Color(0xFF4CAF50)
-                                    )
+                                Button(
+                                    onClick = {
+                                        if (!tempSelectedMembers.any { it.uid == user.uid }) {
+                                            tempSelectedMembers = tempSelectedMembers + user
+                                        }
+                                        searchedUser = null
+                                        searchEmail = ""
+                                    }
+                                ) {
+                                    Text("Ekle")
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Seçilen üyeler
+                    if (tempSelectedMembers.isNotEmpty()) {
+                        Text(
+                            text = "Seçilen Üyeler",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(tempSelectedMembers) { member ->
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .background(Color(0xFF4CAF50).copy(alpha = 0.2f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = member.displayName?.firstOrNull()?.uppercase() ?: "U",
+                                                    fontSize = 18.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF4CAF50)
+                                                )
+                                            }
+                                            
+                                            Column {
+                                                Text(
+                                                    text = member.displayName ?: "Unknown",
+                                                    fontSize = 16.sp,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                                Text(
+                                                    text = member.email ?: "",
+                                                    fontSize = 12.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        
+                                        IconButton(
+                                            onClick = {
+                                                tempSelectedMembers = tempSelectedMembers - member
+                                            }
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Kaldır",
+                                                tint = Color.Red
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -771,178 +757,6 @@ fun TeamSelectorDialog(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Tamam")
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AddTaskDialog(
-    teamMembers: List<User>,
-    onDismiss: () -> Unit,
-    onTaskAdded: (TaskItem) -> Unit
-) {
-    var taskTitle by remember { mutableStateOf("") }
-    var taskDescription by remember { mutableStateOf("") }
-    var selectedUser by remember { mutableStateOf<User?>(null) }
-    var showUserSelector by remember { mutableStateOf(false) }
-    
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = "Yeni Görev Ekle",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                OutlinedTextField(
-                    value = taskTitle,
-                    onValueChange = { taskTitle = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Görev Başlığı") },
-                    shape = RoundedCornerShape(12.dp)
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                OutlinedTextField(
-                    value = taskDescription,
-                    onValueChange = { taskDescription = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Görev Detayı") },
-                    shape = RoundedCornerShape(12.dp),
-                    maxLines = 3
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                if (teamMembers.isNotEmpty()) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showUserSelector = true },
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = selectedUser?.displayName ?: "Kişi Ata (Opsiyonel)",
-                                color = if (selectedUser != null) {
-                                    MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            )
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = "Kişi Seç",
-                                tint = Color(0xFF4CAF50)
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text("İptal")
-                    }
-                    
-                    Button(
-                        onClick = {
-                            if (taskTitle.isNotBlank()) {
-                                onTaskAdded(
-                                    TaskItem(
-                                        title = taskTitle,
-                                        description = taskDescription,
-                                        assignedTo = selectedUser
-                                    )
-                                )
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        enabled = taskTitle.isNotBlank()
-                    ) {
-                        Text("Ekle")
-                    }
-                }
-            }
-        }
-        
-        if (showUserSelector) {
-            Dialog(onDismissRequest = { showUserSelector = false }) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = "Kişi Seç",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(20.dp)
-                        )
-                        
-                        LazyColumn(
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(teamMembers) { user ->
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedUser = user
-                                            showUserSelector = false
-                                        },
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(12.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .background(Color(0xFF4CAF50).copy(alpha = 0.2f), CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = user.displayName.firstOrNull()?.uppercase() ?: "U",
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF4CAF50)
-                                            )
-                                        }
-                                        
-                                        Text(text = user.displayName, fontSize = 16.sp)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }

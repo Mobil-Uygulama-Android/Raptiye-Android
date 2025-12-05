@@ -3,14 +3,14 @@ package tr.edu.bilimankara20307006.taskflow.ui.profile
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 
@@ -38,6 +39,7 @@ fun ProfileEditScreen(
 ) {
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale // Force recomposition on locale change
     
     // Back button handling
     BackHandler(enabled = true) {
@@ -76,13 +78,16 @@ fun ProfileEditScreen(
         label = "contentAlpha"
     )
     
+    // Get current user from Firebase
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val displayName = currentUser?.displayName ?: "User"
+    val email = currentUser?.email ?: ""
+    val userInitial = displayName.firstOrNull()?.uppercase() ?: "U"
+    
     // Form states
-    var firstName by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") }
-    var title by remember { mutableStateOf("") }
-    var skills by remember { mutableStateOf("") }
+    var fullName by remember { mutableStateOf(displayName) }
+    var userEmail by remember { mutableStateOf(email) }
     var bio by remember { mutableStateOf("") }
-    var profileImageUrl by remember { mutableStateOf<String?>(null) }
     
     // Theme colors
     val darkBackground = MaterialTheme.colorScheme.background
@@ -95,7 +100,7 @@ fun ProfileEditScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (localizationManager.currentLocale == "tr") "Profili Düzenle" else "Edit Profile",
+                        text = localizationManager.localizedString("ProfileInformation"),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = textColor,
@@ -108,7 +113,7 @@ fun ProfileEditScreen(
                         modifier = Modifier.alpha(headerAlpha)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = Icons.Default.Close,
                             contentDescription = localizationManager.localizedString("Back"),
                             tint = textColor
                         )
@@ -123,10 +128,10 @@ fun ProfileEditScreen(
                         modifier = Modifier.alpha(headerAlpha)
                     ) {
                         Text(
-                            text = localizationManager.localizedString("Save"),
-                            color = Color(0xFF4CAF50),
+                            text = localizationManager.localizedString("Edit"),
+                            color = Color(0xFF007AFF),
                             fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 },
@@ -142,260 +147,291 @@ fun ProfileEditScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
             contentPadding = PaddingValues(vertical = 20.dp)
         ) {
-            // Profile Photo Section
+            // Profile Photo Section with Name and Email - iOS style
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .alpha(photoAlpha),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(120.dp)
+                            .size(140.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF4CAF50).copy(alpha = 0.1f))
-                            .border(2.dp, Color(0xFF4CAF50), CircleShape)
+                            .background(Color(0xFF007AFF))
                             .clickable {
                                 // TODO: Resim seçme işlemi
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (profileImageUrl == null) {
-                            Icon(
-                                imageVector = Icons.Default.CameraAlt,
-                                contentDescription = if (localizationManager.currentLocale == "tr") 
-                                    "Fotoğraf Ekle" else "Add Photo",
-                                tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
+                        Text(
+                            text = userInitial,
+                            fontSize = 64.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                     
+                    // User Name
                     Text(
-                        text = if (localizationManager.currentLocale == "tr") 
-                            "Profil Fotoğrafı Ekle" else "Add Profile Photo",
+                        text = displayName,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textColor
+                    )
+                    
+                    // Email
+                    Text(
+                        text = email,
                         fontSize = 14.sp,
-                        color = Color(0xFF4CAF50),
-                        fontWeight = FontWeight.Medium
+                        color = textSecondaryColor
                     )
                 }
             }
             
-            // Personal Information Section
+            // Full Name Field - iOS style
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .alpha(contentAlpha),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = if (localizationManager.currentLocale == "tr") 
-                            "Kişisel Bilgiler" else "Personal Information",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
+                        text = if (localizationManager.currentLocale == "tr") "Ad Soyad" else "Full Name",
+                        fontSize = 13.sp,
+                        color = textSecondaryColor,
+                        modifier = Modifier.padding(start = 4.dp)
                     )
                     
-                    // First Name
-                    OutlinedTextField(
-                        value = firstName,
-                        onValueChange = { firstName = it },
-                        label = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") "Ad" else "First Name"
-                            )
-                        },
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4CAF50),
-                            unfocusedBorderColor = textSecondaryColor.copy(alpha = 0.3f),
-                            focusedLabelColor = Color(0xFF4CAF50),
-                            unfocusedLabelColor = textSecondaryColor,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF4CAF50)
+                        colors = CardDefaults.cardColors(
+                            containerColor = cardBackground
                         )
-                    )
-                    
-                    // Last Name
-                    OutlinedTextField(
-                        value = lastName,
-                        onValueChange = { lastName = it },
-                        label = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") "Soyad" else "Last Name"
+                    ) {
+                        TextField(
+                            value = fullName,
+                            onValueChange = { fullName = it },
+                            placeholder = {
+                                Text(
+                                    displayName,
+                                    color = textSecondaryColor
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = textColor,
+                                unfocusedTextColor = textColor,
+                                cursorColor = Color(0xFF007AFF)
                             )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4CAF50),
-                            unfocusedBorderColor = textSecondaryColor.copy(alpha = 0.3f),
-                            focusedLabelColor = Color(0xFF4CAF50),
-                            unfocusedLabelColor = textSecondaryColor,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF4CAF50)
                         )
-                    )
+                    }
                 }
             }
             
-            // Professional Information Section
+            // Email Field - iOS style
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .alpha(contentAlpha),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = if (localizationManager.currentLocale == "tr") 
-                            "Profesyonel Bilgiler" else "Professional Information",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
+                        text = if (localizationManager.currentLocale == "tr") "E-posta" else "Email",
+                        fontSize = 13.sp,
+                        color = textSecondaryColor,
+                        modifier = Modifier.padding(start = 4.dp)
                     )
                     
-                    // Title/Position
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") "Unvan" else "Title"
-                            )
-                        },
-                        placeholder = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") 
-                                    "ör: Yazılım Geliştirici" else "e.g: Software Developer"
-                            )
-                        },
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4CAF50),
-                            unfocusedBorderColor = textSecondaryColor.copy(alpha = 0.3f),
-                            focusedLabelColor = Color(0xFF4CAF50),
-                            unfocusedLabelColor = textSecondaryColor,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF4CAF50)
+                        colors = CardDefaults.cardColors(
+                            containerColor = cardBackground
                         )
-                    )
-                    
-                    // Skills
-                    OutlinedTextField(
-                        value = skills,
-                        onValueChange = { skills = it },
-                        label = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") "Yetenekler" else "Skills"
+                    ) {
+                        TextField(
+                            value = userEmail,
+                            onValueChange = { userEmail = it },
+                            placeholder = {
+                                Text(
+                                    email,
+                                    color = textSecondaryColor
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = textColor,
+                                unfocusedTextColor = textColor,
+                                cursorColor = Color(0xFF007AFF)
                             )
-                        },
-                        placeholder = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") 
-                                    "ör: Kotlin, Android, UI/UX" else "e.g: Kotlin, Android, UI/UX"
-                            )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        minLines = 2,
-                        maxLines = 4,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4CAF50),
-                            unfocusedBorderColor = textSecondaryColor.copy(alpha = 0.3f),
-                            focusedLabelColor = Color(0xFF4CAF50),
-                            unfocusedLabelColor = textSecondaryColor,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF4CAF50)
                         )
-                    )
+                    }
                 }
             }
             
-            // Bio Section
+            // About Section - iOS style
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .alpha(contentAlpha),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = if (localizationManager.currentLocale == "tr") 
-                            "Biyografi" else "Biography",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
+                            "Hakkımda" else "About",
+                        fontSize = 13.sp,
+                        color = textSecondaryColor,
+                        modifier = Modifier.padding(start = 4.dp)
                     )
                     
-                    OutlinedTextField(
-                        value = bio,
-                        onValueChange = { bio = it },
-                        label = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") 
-                                    "Kısa Biyografi" else "Short Bio"
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = cardBackground
+                        )
+                    ) {
+                        TextField(
+                            value = bio,
+                            onValueChange = { bio = it },
+                            placeholder = {
+                                Text(
+                                    if (localizationManager.currentLocale == "tr") 
+                                        "" 
+                                    else "",
+                                    color = textSecondaryColor
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 140.dp),
+                            minLines = 6,
+                            maxLines = 10,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = textColor,
+                                unfocusedTextColor = textColor,
+                                cursorColor = Color(0xFF007AFF)
                             )
+                        )
+                    }
+                }
+            }
+            
+            // Password Change Button - iOS style
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .alpha(contentAlpha)
+                        .clickable {
+                            // TODO: Şifre değiştirme ekranı
                         },
-                        placeholder = {
-                            Text(
-                                if (localizationManager.currentLocale == "tr") 
-                                    "Kendiniz hakkında kısa bir açıklama yazın..." 
-                                else "Write a short description about yourself..."
-                            )
-                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = cardBackground
+                    )
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 120.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        minLines = 5,
-                        maxLines = 8,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4CAF50),
-                            unfocusedBorderColor = textSecondaryColor.copy(alpha = 0.3f),
-                            focusedLabelColor = Color(0xFF4CAF50),
-                            unfocusedLabelColor = textSecondaryColor,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF4CAF50)
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = textColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                text = if (localizationManager.currentLocale == "tr") 
+                                    "Şifre Değiştir" else "Change Password",
+                                fontSize = 16.sp,
+                                color = textColor
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = textSecondaryColor,
+                            modifier = Modifier.size(20.dp)
                         )
-                    )
+                    }
                 }
             }
             
-            // Save Button (Additional, optional since we have one in top bar)
+            // Delete Account Button - iOS style
             item {
-                Button(
-                    onClick = {
-                        // TODO: Kaydetme işlemi
-                        onBackClick()
-                    },
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp)
-                        .alpha(contentAlpha),
+                        .alpha(contentAlpha)
+                        .clickable {
+                            // TODO: Hesap silme uyarısı
+                        },
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
+                    colors = CardDefaults.cardColors(
+                        containerColor = cardBackground
                     )
                 ) {
-                    Text(
-                        text = localizationManager.localizedString("Save"),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = Color(0xFFFF3B30),
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Text(
+                                text = if (localizationManager.currentLocale == "tr") 
+                                    "Hesabı Sil" else "Delete Account",
+                                fontSize = 16.sp,
+                                color = Color(0xFFFF3B30)
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = textSecondaryColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }

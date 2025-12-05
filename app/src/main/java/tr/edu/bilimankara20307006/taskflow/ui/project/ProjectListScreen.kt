@@ -7,12 +7,17 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -26,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
@@ -45,6 +51,7 @@ fun ProjectListScreen(
 ) {
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale // Force recomposition on locale change
     val coroutineScope = rememberCoroutineScope()
     
     // ViewModel
@@ -149,6 +156,19 @@ fun ProjectListScreen(
         label = "addButtonScale"
     )
     
+    // Pull to refresh state
+    val pullToRefreshState = rememberPullToRefreshState()
+    
+    // Handle pull to refresh
+    LaunchedEffect(pullToRefreshState.isRefreshing) {
+        if (pullToRefreshState.isRefreshing) {
+            println("🔄 Pull to refresh tetiklendi, projeler yenileniyor...")
+            viewModel.refreshProjects()
+            delay(1000) // Animasyon için kısa bekleme
+            pullToRefreshState.endRefresh()
+        }
+    }
+    
     val sortOptions = listOf(
         localizationManager.localizedString("SortOptionDate"),
         localizationManager.localizedString("SortOptionName"),
@@ -207,12 +227,38 @@ fun ProjectListScreen(
         }
     }
     
+    // AddTeamMember ekranı için state
+    var showAddMember by remember { mutableStateOf(false) }
+    var addMemberProjectId by remember { mutableStateOf<String?>(null) }
+    
+    // AddTeamMember ekranı gösteriliyorsa
+    if (showAddMember && addMemberProjectId != null && selectedProject != null) {
+        AddTeamMemberScreen(
+            projectId = addMemberProjectId!!,
+            onBackClick = {
+                showAddMember = false
+                addMemberProjectId = null
+            },
+            onMemberAdded = {
+                showAddMember = false
+                addMemberProjectId = null
+                // Ekranı kapat, ana ekrana dönünce otomatik yenilenecek
+                onProjectSelected(null)
+            }
+        )
+        return
+    }
+    
     // Show project detail screen if a project is selected
     if (selectedProject != null) {
         ProjectDetailScreen(
-            project = selectedProject!!,
+            projectId = selectedProject!!.id,
             onBackClick = {
                 onProjectSelected(null)
+            },
+            onAddMemberClick = { projectId ->
+                addMemberProjectId = projectId
+                showAddMember = true
             }
         )
         return
@@ -222,6 +268,7 @@ fun ProjectListScreen(
         modifier = modifier
             .fillMaxSize()
             .background(darkBackground)
+            .nestedScroll(pullToRefreshState.nestedScrollConnection)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -245,64 +292,91 @@ fun ProjectListScreen(
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Analytics butonu
+                    // Analytics butonu - Sadece proje varsa aktif
+                    val hasProjects = projects.isNotEmpty()
                     Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .scale(analyticsButtonScale)
-                            .background(Color(0xFFFF9F0A), CircleShape)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        analyticsButtonPressed = true
-                                        tryAwaitRelease()
-                                        analyticsButtonPressed = false
-                                    }
-                                )
-                            }
-                            .clickable {
-                                coroutineScope.launch {
-                                    delay(100)
-                                    onNavigateToAnalytics()
+                            .scale(if (hasProjects) analyticsButtonScale else 1f)
+                            .background(
+                                if (hasProjects) Color(0xFFFF9F0A) else Color(0xFFFF9F0A).copy(alpha = 0.3f),
+                                CircleShape
+                            )
+                            .then(
+                                if (hasProjects) {
+                                    Modifier
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onPress = {
+                                                    analyticsButtonPressed = true
+                                                    tryAwaitRelease()
+                                                    analyticsButtonPressed = false
+                                                }
+                                            )
+                                        }
+                                        .clickable {
+                                            coroutineScope.launch {
+                                                delay(100)
+                                                // İlk projeyi seç ve analytics'e git
+                                                if (projects.isNotEmpty()) {
+                                                    onProjectSelected(projects.first())
+                                                    delay(100)
+                                                    onNavigateToAnalytics()
+                                                }
+                                            }
+                                        }
+                                } else {
+                                    Modifier
                                 }
-                            },
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.BarChart,
                             contentDescription = localizationManager.localizedString("Analytics"),
-                            tint = Color.White,
+                            tint = if (hasProjects) Color.White else Color.White.copy(alpha = 0.5f),
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     
-                    // Kanban Panosu butonu
+                    // Kanban Panosu butonu - Sadece proje varsa aktif
                     Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .scale(boardButtonScale)
-                            .background(Color(0xFF32D74B), CircleShape)
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onPress = {
-                                        boardButtonPressed = true
-                                        tryAwaitRelease()
-                                        boardButtonPressed = false
-                                    }
-                                )
-                            }
-                            .clickable {
-                                coroutineScope.launch {
-                                    delay(100)
-                                    onNavigateToBoard()
+                            .scale(if (hasProjects) boardButtonScale else 1f)
+                            .background(
+                                if (hasProjects) Color(0xFF32D74B) else Color(0xFF32D74B).copy(alpha = 0.3f),
+                                CircleShape
+                            )
+                            .then(
+                                if (hasProjects) {
+                                    Modifier
+                                        .pointerInput(Unit) {
+                                            detectTapGestures(
+                                                onPress = {
+                                                    boardButtonPressed = true
+                                                    tryAwaitRelease()
+                                                    boardButtonPressed = false
+                                                }
+                                            )
+                                        }
+                                        .clickable {
+                                            coroutineScope.launch {
+                                                delay(100)
+                                                // Proje Panosu ekranına git (Dashboard)
+                                                onNavigateToBoard()
+                                            }
+                                        }
+                                } else {
+                                    Modifier
                                 }
-                            },
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.ViewKanban,
                             contentDescription = localizationManager.localizedString("KanbanBoard"),
-                            tint = Color.White,
+                            tint = if (hasProjects) Color.White else Color.White.copy(alpha = 0.5f),
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -512,41 +586,122 @@ fun ProjectListScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-            } else if (projects.isEmpty() && !state.isLoading) {
-                // Boş liste mesajı
-                Box(
+            } else if (filteredProjects.isEmpty() && !state.isLoading) {
+                // iOS-style Empty State - Scrollable
+                val scrollState = rememberScrollState()
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(32.dp)
+                        .padding(bottom = 100.dp), // Extra space for bottom nav
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
+                    // Folder icon with plus
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .padding(bottom = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Folder,
+                            contentDescription = null,
+                            tint = textColor.copy(alpha = 0.3f),
+                            modifier = Modifier.size(80.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .offset(x = 10.dp, y = 10.dp)
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    
                     Text(
-                        text = localizationManager.localizedString("NoProjects"),
-                        color = textColor.copy(alpha = 0.6f),
-                        fontSize = 16.sp
+                        text = if (localizationManager.currentLocale == "tr") 
+                            "Henüz Proje Yok" 
+                        else 
+                            "No Projects Yet",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor,
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
+                    
+                    Text(
+                        text = if (localizationManager.currentLocale == "tr")
+                            "Yeni bir proje oluşturmak için +\nbutonuna tıklayın"
+                        else
+                            "Tap the + button to create\na new project",
+                        fontSize = 16.sp,
+                        color = textColor.copy(alpha = 0.6f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 22.sp,
+                        modifier = Modifier.padding(bottom = 32.dp)
+                    )
+                    
+                    // Create Project Button
+                    Button(
+                        onClick = { showAddProjectDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .padding(horizontal = 32.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF007AFF)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (localizationManager.currentLocale == "tr")
+                                "Yeni Proje Oluştur"
+                            else
+                                "Create New Project",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
             
             // Projects list
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 90.dp) // Space for bottom nav
-            ) {
-                itemsIndexed(filteredProjects) { index, project ->
-                    AnimatedProjectCard(
-                        project = project,
-                        index = index,
-                        isNewlyAdded = project.id == newlyAddedProjectId,
-                        isInitialLoad = isInitialLoad,
-                        onClick = { 
-                            println("🔥 Proje tıklandı: ${project.title}")
-                            onProjectSelected(project) 
-                        }
-                    )
+            if (filteredProjects.isNotEmpty()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 90.dp) // Space for bottom nav
+                ) {
+                    itemsIndexed(filteredProjects) { index, project ->
+                        AnimatedProjectCard(
+                            project = project,
+                            index = index,
+                            isNewlyAdded = project.id == newlyAddedProjectId,
+                            isInitialLoad = isInitialLoad,
+                            onClick = { 
+                                println("🔥 Proje tıklandı: ${project.title}")
+                                onProjectSelected(project) 
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -555,7 +710,7 @@ fun ProjectListScreen(
         if (showAddProjectDialog) {
             AddProjectDialog(
                 onDismiss = { showAddProjectDialog = false },
-                onProjectCreated = { newProject ->
+                onProjectCreated = { newProject, memberIds ->
                     coroutineScope.launch {
                         // Backend'e yeni proje ekle
                         viewModel.createProject(
@@ -563,7 +718,8 @@ fun ProjectListScreen(
                             description = newProject.description,
                             iconName = newProject.iconName,
                             iconColor = newProject.iconColor,
-                            dueDate = newProject.dueDate?.toString()
+                            dueDate = newProject.dueDate?.toString(),
+                            teamMemberIds = memberIds
                         )
                         
                         newlyAddedProjectId = newProject.id
@@ -583,6 +739,12 @@ fun ProjectListScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 100.dp)
+        )
+        
+        // Pull to refresh indicator
+        PullToRefreshContainer(
+            state = pullToRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
         )
     }
 }

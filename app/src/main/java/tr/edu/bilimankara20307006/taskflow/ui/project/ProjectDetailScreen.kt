@@ -22,13 +22,17 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
+import tr.edu.bilimankara20307006.taskflow.data.model.ProjectStatus
 import tr.edu.bilimankara20307006.taskflow.data.model.Task
 import tr.edu.bilimankara20307006.taskflow.data.model.User
 import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
+import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,13 +43,71 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectDetailScreen(
-    project: Project,
+    projectId: String,
     onBackClick: () -> Unit = {},
     onTaskClick: (Task) -> Unit = {},
+    onAddMemberClick: (String) -> Unit = {},
+    onAddTaskClick: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // Firebase'den projeyi ve görevleri yükle
+    var project by remember { mutableStateOf<Project?>(null) }
+    var isLoadingProject by remember { mutableStateOf(true) }
+    var showAnalytics by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    var showNotificationDialog by remember { mutableStateOf(false) }
+    var isArchived by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val repository = remember { tr.edu.bilimankara20307006.taskflow.data.repository.ProjectRepository.getInstance() }
+    val coroutineScope = rememberCoroutineScope()
+    val viewModel: ProjectListViewModel = viewModel()
+    
+    // Refresh fonksiyonu
+    val refreshData = suspend {
+        println("🔄 Proje verisi yenileniyor...")
+        val result = repository.getProjectById(projectId)
+        result.onSuccess { loadedProject ->
+            println("✅ Proje yüklendi: ${loadedProject.title}")
+            println("👥 TeamLeader: ${loadedProject.teamLeader?.email}")
+            println("👥 TeamMembers: ${loadedProject.teamMembers.size}")
+            project = loadedProject
+            isLoadingProject = false
+        }.onFailure { error ->
+            println("❌ Proje yükleme hatası: ${error.message}")
+            isLoadingProject = false
+        }
+    }
+    
+    // Projeyi yükle - ilk açılışta ve her 5 saniyede bir (iOS gibi real-time)
+    LaunchedEffect(projectId) {
+        isLoadingProject = true
+        refreshData()
+        
+        // Her 5 saniyede bir otomatik yenile (iOS'taki gibi)
+        while (true) {
+            delay(5000)
+            refreshData()
+        }
+    }
+    
+    // Loading state
+    if (isLoadingProject || project == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+    
+    val currentProject = project!!
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale // Force recomposition on locale change
     
     // Back button handling
     BackHandler(enabled = true) {
@@ -105,23 +167,75 @@ fun ProjectDetailScreen(
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
-    // Sample data (gerçek uygulamada Firebase'den gelecek)
-    val teamLeader = remember {
-        User("1", "Emily Carter", "emily@example.com")
+    // iOS gibi gerçek project data'sını kullan
+    // TeamLeader yoksa, owner'dan oluştur veya teamMembers'tan bul
+    val teamLeader = remember(currentProject) {
+        currentProject.teamLeader ?: currentProject.teamMembers.find { it.uid == currentProject.ownerId }
     }
     
-    val teamMembers = remember {
-        listOf(
-            User("2", "David Lee", "david@example.com"),
-            User("3", "Ahmet Yılmaz", "ahmet@example.com")
+    val teamMembers = remember(currentProject.teamMembers, currentProject.ownerId) {
+        // Proje liderini listeden çıkar (iOS'taki gibi)
+        currentProject.teamMembers.filter { it.uid != currentProject.ownerId }
+    }
+    
+    // Snackbar host state for error messages
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Show error message as snackbar
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Long
+            )
+            errorMessage = null
+        }
+    }
+    
+    // Firebase'den gerçek görevleri yükle
+    var tasks by remember { mutableStateOf<List<Task>>(emptyList()) }
+    var isLoadingTasks by remember { mutableStateOf(true) }
+    
+    // Görevleri yenile
+    val taskRepository = remember { tr.edu.bilimankara20307006.taskflow.data.repository.TaskRepository.getInstance() }
+    val refreshTasks = suspend {
+        val result = taskRepository.getTasksByProject(projectId)
+        result.onSuccess { taskList ->
+            println("✅ ${taskList.size} görev yüklendi")
+            tasks = taskList
+            isLoadingTasks = false
+        }.onFailure { error ->
+            println("❌ Görev yükleme hatası: ${error.message}")
+            isLoadingTasks = false
+        }
+    }
+    
+    LaunchedEffect(projectId) {
+        refreshTasks()
+        
+        // Her 5 saniyede bir görevleri yenile
+        while (true) {
+            delay(5000)
+            refreshTasks()
+        }
+    }
+    
+    // Analytics ekranını göster (tasks yüklendikten sonra)
+    if (showAnalytics) {
+        ProjectAnalyticsDetailScreen(
+            project = currentProject,
+            tasks = tasks,
+            onBackClick = { showAnalytics = false }
         )
+        return
     }
     
-    val tasks = remember {
-        Task.sampleTasks(project.id)
-    }
+    // Görev sayılarını hesapla (iOS'taki gibi)
+    val tasksCount = tasks.size
+    val completedTasksCount = tasks.count { it.status == tr.edu.bilimankara20307006.taskflow.data.model.TaskStatus.COMPLETED }
     
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -142,12 +256,84 @@ fun ProjectDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Analytics */ }) {
+                    // iOS gibi grafik butonu
+                    IconButton(onClick = { showAnalytics = true }) {
                         Icon(
                             Icons.Default.BarChart,
-                            contentDescription = "İstatistikler",
-                            tint = textColor
+                            contentDescription = localizationManager.localizedString("Statistics"),
+                            tint = Color(0xFF4CAF50)
                         )
+                    }
+                    
+                    // iOS gibi üç nokta menüsü
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                Icons.Default.MoreVert,
+                                contentDescription = "Menü",
+                                tint = textColor
+                            )
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            // Projeyi Düzenle
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            contentDescription = null,
+                                            tint = Color(0xFF4CAF50),
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Text(
+                                            localizationManager.localizedString("EditProject"),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showEditDialog = true
+                                }
+                            )
+                            
+                            HorizontalDivider()
+                            
+                            // Projeyi Sil
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFF3B30),
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Text(
+                                            localizationManager.localizedString("DeleteProject"),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFFFF3B30)
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showDeleteDialog = true
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -183,7 +369,7 @@ fun ProjectDetailScreen(
                     ) {
                         // Project Title
                         Text(
-                            text = project.title,
+                            text = currentProject.title,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = textColor
@@ -191,14 +377,14 @@ fun ProjectDetailScreen(
                         
                         // Project Description
                         Text(
-                            text = project.description,
+                            text = currentProject.description,
                             fontSize = 16.sp,
                             color = textSecondaryColor,
                             lineHeight = 24.sp
                         )
                         
                         // Due Date
-                        project.dueDate?.let { date ->
+                        currentProject.dueDate?.let { dateString ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -210,7 +396,7 @@ fun ProjectDetailScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "${localizationManager.localizedString("DueDate")}: ${SimpleDateFormat("dd MMMM yyyy", Locale(localizationManager.currentLocale)).format(date)}",
+                                    text = "${localizationManager.localizedString("DueDate")}: $dateString",
                                     fontSize = 14.sp,
                                     color = Color(0xFF4CAF50),
                                     fontWeight = FontWeight.SemiBold
@@ -233,7 +419,7 @@ fun ProjectDetailScreen(
                                 color = textColor
                             )
                             Text(
-                                text = "${project.completedTasksCount}/${project.tasksCount}",
+                                text = "$completedTasksCount/$tasksCount",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = textSecondaryColor
@@ -241,8 +427,9 @@ fun ProjectDetailScreen(
                         }
                         
                         // Progress Bar
+                        val progressPercentage = if (tasksCount > 0) completedTasksCount.toFloat() / tasksCount.toFloat() else 0f
                         LinearProgressIndicator(
-                            progress = { project.progressPercentage.toFloat() },
+                            progress = { progressPercentage },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(8.dp)
@@ -262,26 +449,56 @@ fun ProjectDetailScreen(
                         .alpha(teamAlpha),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = localizationManager.localizedString("Team"),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
-                    )
+                    // Team Header with Add Button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = localizationManager.localizedString("Team"),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textColor
+                        )
+                        
+                        // Add Member Button - iOS gibi
+                        TextButton(
+                            onClick = {
+                                onAddMemberClick(currentProject.id)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PersonAdd,
+                                contentDescription = localizationManager.localizedString("AddMember"),
+                                tint = Color(0xFF66D69A),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = localizationManager.localizedString("AddMember"),
+                                color = Color(0xFF66D69A),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                     
                     // Team Leader
-                    Text(
-                        text = localizationManager.localizedString("TeamLeader"),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = textSecondaryColor
-                    )
-                    
-                    TeamMemberItem(
-                        user = teamLeader,
-                        isLeader = true,
-                        taskCount = 1
-                    )
+                    teamLeader?.let { leader ->
+                        Text(
+                            text = localizationManager.localizedString("TeamLeader"),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textSecondaryColor
+                        )
+                        
+                        TeamMemberItem(
+                            user = leader,
+                            isLeader = true,
+                            taskCount = 1
+                        )
+                    }
                     
                     // Team Members
                     if (teamMembers.isNotEmpty()) {
@@ -324,7 +541,7 @@ fun ProjectDetailScreen(
                         )
                         
                         IconButton(
-                            onClick = { /* Add Task */ },
+                            onClick = { onAddTaskClick(projectId) },
                             modifier = Modifier
                                 .size(36.dp)
                                 .background(Color(0xFF4CAF50), CircleShape)
@@ -353,6 +570,518 @@ fun ProjectDetailScreen(
             item {
                 Spacer(modifier = Modifier.height(40.dp))
             }
+        }
+        
+        // Silme Onay Dialogu - iOS gibi
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                icon = {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = Color(0xFFFF3B30),
+                        modifier = Modifier.size(48.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Projeyi Sil",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Bu projeyi silmek istediğinizden emin misiniz?",
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "Proje: ${currentProject.title}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textSecondaryColor
+                        )
+                        Text(
+                            text = "Bu işlem geri alınamaz. Tüm görevler ve veriler kalıcı olarak silinecektir.",
+                            fontSize = 14.sp,
+                            color = Color(0xFFFF3B30)
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteDialog = false
+                            println("🗑️ Proje silme işlemi başlatılıyor: ${currentProject.id}")
+                            // ViewModel üzerinden sil - hem Firebase'den hem de local listeden kaldırır
+                            viewModel.deleteProject(currentProject.id)
+                            // UI'dan hemen geri dön (state otomatik güncellenecek)
+                            println("⬅️ Geri dönülüyor...")
+                            onBackClick()
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFFFF3B30)
+                        )
+                    ) {
+                        Text(
+                            "Sil",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDeleteDialog = false }
+                    ) {
+                        Text(
+                            "İptal",
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp)
+            )
+        }
+        
+        // Düzenleme Dialogu - Tüm alanlar düzenlenebilir
+        if (showEditDialog) {
+            var editTitle by remember { mutableStateOf(currentProject.title) }
+            var editDescription by remember { mutableStateOf(currentProject.description) }
+            var editIconName by remember { mutableStateOf(currentProject.iconName) }
+            var editIconColor by remember { mutableStateOf(currentProject.iconColor) }
+            var editStatus by remember { mutableStateOf(currentProject.status) }
+            var editDueDate by remember { mutableStateOf(currentProject.dueDate ?: "") }
+            var showIconPicker by remember { mutableStateOf(false) }
+            var showColorPicker by remember { mutableStateOf(false) }
+            var showStatusPicker by remember { mutableStateOf(false) }
+            var showDatePicker by remember { mutableStateOf(false) }
+            
+            // İkon seçenekleri
+            val iconOptions = listOf(
+                "work" to Icons.Default.Work,
+                "folder" to Icons.Default.Folder,
+                "home" to Icons.Default.Home,
+                "code" to Icons.Default.Code,
+                "school" to Icons.Default.School,
+                "favorite" to Icons.Default.Favorite,
+                "star" to Icons.Default.Star,
+                "settings" to Icons.Default.Settings
+            )
+            
+            // Renk seçenekleri - iOS renkleri
+            val colorOptions = listOf(
+                "#4CAF50" to "Yeşil",
+                "#2196F3" to "Mavi",
+                "#FF9500" to "Turuncu",
+                "#FF3B30" to "Kırmızı",
+                "#9C27B0" to "Mor",
+                "#607D8B" to "Gri",
+                "#00BCD4" to "Turkuaz",
+                "#FF9800" to "Amber"
+            )
+            
+            // Durum seçenekleri
+            val statusOptions = listOf(ProjectStatus.ACTIVE, ProjectStatus.COMPLETED, ProjectStatus.ARCHIVED)
+            val statusLabels = mapOf(
+                ProjectStatus.ACTIVE to "Aktif",
+                ProjectStatus.COMPLETED to "Tamamlandı",
+                ProjectStatus.ARCHIVED to "Arşivlendi"
+            )
+            
+            AlertDialog(
+                onDismissRequest = { showEditDialog = false },
+                icon = {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(40.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Projeyi Düzenle",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // Proje Adı
+                        item {
+                            OutlinedTextField(
+                                value = editTitle,
+                                onValueChange = { editTitle = it },
+                                label = { Text("Proje Adı") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        
+                        // Açıklama
+                        item {
+                            OutlinedTextField(
+                                value = editDescription,
+                                onValueChange = { editDescription = it },
+                                label = { Text("Açıklama") },
+                                minLines = 3,
+                                maxLines = 5,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        
+                        // İkon Seçimi
+                        item {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "İkon",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    iconOptions.forEach { (name, icon) ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(
+                                                    if (editIconName == name) Color(0xFF4CAF50).copy(alpha = 0.2f)
+                                                    else MaterialTheme.colorScheme.surfaceVariant
+                                                )
+                                                .clickable { editIconName = name },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                icon,
+                                                contentDescription = name,
+                                                tint = if (editIconName == name) Color(0xFF4CAF50)
+                                                      else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Renk Seçimi
+                        item {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Renk",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    colorOptions.forEach { (hex, label) ->
+                                        Box(
+                                            modifier = Modifier
+                                                .size(48.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(android.graphics.Color.parseColor(hex)))
+                                                .clickable { editIconColor = hex },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (editIconColor == hex) {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = "Seçili",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Durum Seçimi
+                        item {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Durum",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    statusOptions.forEach { status ->
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(
+                                                    if (editStatus == status) Color(0xFF4CAF50).copy(alpha = 0.2f)
+                                                    else MaterialTheme.colorScheme.surfaceVariant
+                                                )
+                                                .clickable { editStatus = status }
+                                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                        ) {
+                                            Text(
+                                                text = statusLabels[status] ?: status.name,
+                                                fontSize = 14.sp,
+                                                fontWeight = if (editStatus == status) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (editStatus == status) Color(0xFF4CAF50)
+                                                       else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Bitiş Tarihi
+                        item {
+                            OutlinedTextField(
+                                value = editDueDate,
+                                onValueChange = { editDueDate = it },
+                                label = { Text("Bitiş Tarihi (yyyy-MM-dd)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = {
+                                    IconButton(onClick = {
+                                        // Tarih seçici açılabilir (basitlik için manuel giriş)
+                                    }) {
+                                        Icon(Icons.Default.CalendarToday, contentDescription = "Tarih Seç")
+                                    }
+                                }
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showEditDialog = false
+                            coroutineScope.launch {
+                                repository.updateProject(
+                                    projectId = currentProject.id,
+                                    title = editTitle,
+                                    description = editDescription,
+                                    iconName = editIconName,
+                                    iconColor = editIconColor,
+                                    status = editStatus.name.lowercase(),
+                                    dueDate = editDueDate.ifEmpty { null }
+                                )
+                            }
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFF4CAF50)
+                        )
+                    ) {
+                        Text(
+                            "Kaydet",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showEditDialog = false }
+                    ) {
+                        Text(
+                            "İptal",
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp)
+            )
+        }
+        
+        // Paylaşım Dialogu
+        if (showShareDialog) {
+            AlertDialog(
+                onDismissRequest = { showShareDialog = false },
+                icon = {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = null,
+                        tint = Color(0xFF2196F3),
+                        modifier = Modifier.size(40.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Projeyi Paylaş",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Proje: ${currentProject.title}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Proje ID: ${currentProject.id}",
+                            fontSize = 14.sp,
+                            color = textSecondaryColor
+                        )
+                        Text(
+                            text = "Bu projeyi paylaşmak için proje ID'sini kopyalayın ve gönderin.",
+                            fontSize = 14.sp,
+                            color = textSecondaryColor
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showShareDialog = false
+                            // Clipboard'a kopyala
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("Project ID", currentProject.id)
+                            clipboard.setPrimaryClip(clip)
+                            android.widget.Toast.makeText(context, "Proje ID kopyalandı", android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFF2196F3)
+                        )
+                    ) {
+                        Text(
+                            "Kopyala",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showShareDialog = false }
+                    ) {
+                        Text(
+                            "Kapat",
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp)
+            )
+        }
+        
+        // Bildirim Dialogu
+        if (showNotificationDialog) {
+            var notificationsEnabled by remember { mutableStateOf(true) }
+            
+            AlertDialog(
+                onDismissRequest = { showNotificationDialog = false },
+                icon = {
+                    Icon(
+                        Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9500),
+                        modifier = Modifier.size(40.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Proje Bildirimleri",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "Proje: ${currentProject.title}",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Bildirimleri Aç",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "Yeni görevler ve güncellemeler",
+                                    fontSize = 13.sp,
+                                    color = textSecondaryColor
+                                )
+                            }
+                            Switch(
+                                checked = notificationsEnabled,
+                                onCheckedChange = { notificationsEnabled = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF4CAF50)
+                                )
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showNotificationDialog = false
+                            // TODO: Bildirim tercihini kaydet
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFFFF9500)
+                        )
+                    ) {
+                        Text(
+                            "Kaydet",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showNotificationDialog = false }
+                    ) {
+                        Text(
+                            "İptal",
+                            fontSize = 16.sp
+                        )
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp)
+            )
         }
     }
 }
@@ -393,7 +1122,7 @@ fun TeamMemberItem(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = user.displayName.firstOrNull()?.uppercase() ?: "U",
+                        text = user.initials,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = avatarColor
@@ -402,13 +1131,13 @@ fun TeamMemberItem(
                 
                 Column {
                     Text(
-                        text = user.displayName,
+                        text = user.displayName ?: "Kullanıcı",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = textColor
                     )
                     Text(
-                        text = user.email,
+                        text = user.email ?: "",
                         fontSize = 14.sp,
                         color = textSecondaryColor
                     )
@@ -455,6 +1184,21 @@ fun TaskListItem(
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
+    // iOS gibi öncelik renkleri
+    val priorityColor = when (task.priority.lowercase()) {
+        "yüksek", "high" -> Color(0xFFFF3B30)
+        "orta", "medium" -> Color(0xFFFF9500)
+        "düşük", "low" -> Color(0xFF34C759)
+        else -> Color(0xFF8E8E93)
+    }
+    
+    val priorityText = when (task.priority.lowercase()) {
+        "yüksek", "high" -> "Yüksek"
+        "orta", "medium" -> "Orta"
+        "düşük", "low" -> "Düşük"
+        else -> task.priority
+    }
+    
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -469,6 +1213,16 @@ fun TaskListItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // iOS gibi soldaki renkli çizgi
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(56.dp)
+                    .background(priorityColor, RoundedCornerShape(2.dp))
+            )
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -508,35 +1262,31 @@ fun TaskListItem(
                         text = task.title,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = textColor
+                        color = textColor,
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null
                     )
                     
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 4.dp)
                     ) {
-                        // Assigned user
-                        task.assignee?.let { user ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = textSecondaryColor,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = user.displayName,
-                                    fontSize = 12.sp,
-                                    color = textSecondaryColor
-                                )
-                            }
+                        // Priority badge - iOS gibi
+                        Surface(
+                            color = priorityColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = priorityText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = priorityColor,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
                         
-                        // Due date
-                        task.dueDate?.let { date ->
+                        // Due date - iOS gibi format
+                        task.dueDate?.let { dateString ->
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -545,10 +1295,10 @@ fun TaskListItem(
                                     Icons.Default.CalendarToday,
                                     contentDescription = null,
                                     tint = textSecondaryColor,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(12.dp)
                                 )
                                 Text(
-                                    text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date),
+                                    text = dateString,
                                     fontSize = 12.sp,
                                     color = textSecondaryColor
                                 )
@@ -564,6 +1314,592 @@ fun TaskListItem(
                 tint = textSecondaryColor,
                 modifier = Modifier.size(20.dp)
             )
+        }
+    }
+}
+
+/**
+ * Proje Analytics Detay Ekranı - iOS gibi
+ * Gerçek proje verilerini gösterir
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProjectAnalyticsDetailScreen(
+    project: Project,
+    tasks: List<Task>,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale // Force recomposition on locale change
+    
+    val darkBackground = MaterialTheme.colorScheme.background
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    
+    // İstatistikleri hesapla
+    val totalTasks = tasks.size
+    val completedTasks = tasks.count { it.status == tr.edu.bilimankara20307006.taskflow.data.model.TaskStatus.COMPLETED }
+    val inProgressTasks = tasks.count { it.status == tr.edu.bilimankara20307006.taskflow.data.model.TaskStatus.IN_PROGRESS }
+    val todoTasks = tasks.count { it.status == tr.edu.bilimankara20307006.taskflow.data.model.TaskStatus.TODO }
+    val completionRate = if (totalTasks > 0) (completedTasks.toFloat() / totalTasks * 100).toInt() else 0
+    
+    // Öncelik dağılımı
+    val highPriorityTasks = tasks.count { it.priority.lowercase() in listOf("yüksek", "high") }
+    val mediumPriorityTasks = tasks.count { it.priority.lowercase() in listOf("orta", "medium") }
+    val lowPriorityTasks = tasks.count { it.priority.lowercase() in listOf("düşük", "low") }
+    
+    // Takım performansı
+    val teamMembers = project.teamMembers
+    val teamPerformance = teamMembers.map { member ->
+        val memberTasks = tasks.filter { it.assignee?.uid == member.uid }
+        val memberCompleted = memberTasks.count { it.status == tr.edu.bilimankara20307006.taskflow.data.model.TaskStatus.COMPLETED }
+        Triple(member, memberTasks.size, memberCompleted)
+    }
+    
+    Scaffold(
+        topBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = cardBackground,
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Geri",
+                                tint = textColor
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = localizationManager.localizedString("Statistics"),
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                            Text(
+                                text = project.title,
+                                fontSize = 14.sp,
+                                color = textSecondaryColor
+                            )
+                        }
+                    }
+                    
+                    Icon(
+                        Icons.Default.BarChart,
+                        contentDescription = null,
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        },
+        containerColor = darkBackground
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 20.dp)
+        ) {
+            // Genel Bakış
+            item {
+                Text(
+                    text = localizationManager.localizedString("Overview"),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
+                )
+            }
+            
+            // Tamamlanma Oranı Kartı - iOS gradient stili
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(
+                            androidx.compose.ui.graphics.Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF4CAF50),
+                                    Color(0xFF66D69A)
+                                )
+                            )
+                        )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = localizationManager.localizedString("Completion"),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                                Text(
+                                    text = "%$completionRate",
+                                    fontSize = 48.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.TrendingUp,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "$completedTasks",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = localizationManager.localizedString("Completed"),
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
+                            
+                            Box(
+                                modifier = Modifier
+                                    .width(2.dp)
+                                    .height(40.dp)
+                                    .background(Color.White.copy(alpha = 0.3f))
+                            )
+                            
+                            Column {
+                                Text(
+                                    text = "$totalTasks",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = localizationManager.localizedString("Total"),
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Görev Durumu
+            item {
+                Text(
+                    text = localizationManager.localizedString("TaskStatus"),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Yapılacak - iOS glassmorphism
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF8E8E93).copy(alpha = 0.15f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Circle,
+                                contentDescription = null,
+                                tint = Color(0xFF8E8E93),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Text(
+                                text = "$todoTasks",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                            Text(
+                                text = localizationManager.localizedString("Todo"),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = textSecondaryColor
+                            )
+                        }
+                    }
+                    
+                    // Devam Eden
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFFFF9500).copy(alpha = 0.15f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.PlayCircle,
+                                contentDescription = null,
+                                tint = Color(0xFFFF9500),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Text(
+                                text = "$inProgressTasks",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                            Text(
+                                text = localizationManager.localizedString("InProgress"),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = textSecondaryColor
+                            )
+                        }
+                    }
+                    
+                    // Tamamlanan
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF34C759).copy(alpha = 0.15f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF34C759),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Text(
+                                text = "$completedTasks",
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor
+                            )
+                            Text(
+                                text = localizationManager.localizedString("Completed"),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = textSecondaryColor
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Öncelik Dağılımı
+            item {
+                Text(
+                    text = localizationManager.localizedString("PriorityDistribution"),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
+            
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    PriorityCard(
+                        label = localizationManager.localizedString("HighPriority"),
+                        count = highPriorityTasks,
+                        total = totalTasks,
+                        color = Color(0xFFFF3B30),
+                        icon = Icons.Default.Error
+                    )
+                    PriorityCard(
+                        label = localizationManager.localizedString("MediumPriority"),
+                        count = mediumPriorityTasks,
+                        total = totalTasks,
+                        color = Color(0xFFFF9500),
+                        icon = Icons.Default.Warning
+                    )
+                    PriorityCard(
+                        label = localizationManager.localizedString("LowPriority"),
+                        count = lowPriorityTasks,
+                        total = totalTasks,
+                        color = Color(0xFF34C759),
+                        icon = Icons.Default.Info
+                    )
+                }
+            }
+            
+            // Takım Performansı
+            if (teamPerformance.isNotEmpty()) {
+                item {
+                    Text(
+                        text = localizationManager.localizedString("TeamPerformance"),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                
+                items(teamPerformance.size) { index ->
+                    val (member, totalMemberTasks, completedMemberTasks) = teamPerformance[index]
+                    val memberCompletionRate = if (totalMemberTasks > 0) 
+                        (completedMemberTasks.toFloat() / totalMemberTasks * 100).toInt() else 0
+                    
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = cardBackground,
+                        shape = RoundedCornerShape(16.dp),
+                        shadowElevation = 2.dp
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Avatar - iOS gradient
+                                    Box(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                androidx.compose.ui.graphics.Brush.linearGradient(
+                                                    colors = listOf(
+                                                        Color(0xFF4CAF50),
+                                                        Color(0xFF66D69A)
+                                                    )
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = member.initials,
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                    
+                                    Column {
+                                        Text(
+                                            text = member.displayName ?: member.email ?: "Kullanıcı",
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = textColor
+                                        )
+                                        Text(
+                                            text = "$completedMemberTasks / $totalMemberTasks görev",
+                                            fontSize = 14.sp,
+                                            color = textSecondaryColor
+                                        )
+                                    }
+                                }
+                                
+                                Column(
+                                    horizontalAlignment = Alignment.End
+                                ) {
+                                    Text(
+                                        text = "%$memberCompletionRate",
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF4CAF50)
+                                    )
+                                    Text(
+                                        text = "tamamlandı",
+                                        fontSize = 12.sp,
+                                        color = textSecondaryColor
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Progress bar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(textSecondaryColor.copy(alpha = 0.2f))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(memberCompletionRate / 100f)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(
+                                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    Color(0xFF4CAF50),
+                                                    Color(0xFF66D69A)
+                                                )
+                                            )
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Öncelik kartı bileşeni - iOS stili
+ */
+@Composable
+private fun PriorityCard(
+    label: String,
+    count: Int,
+    total: Int,
+    color: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardBackground = MaterialTheme.colorScheme.surface
+    val percentage = if (total > 0) (count.toFloat() / total * 100).toInt() else 0
+    
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = cardBackground,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                // Icon with background
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(CircleShape)
+                        .background(color.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = color,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                
+                Column {
+                    Text(
+                        text = label,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textColor
+                    )
+                    Text(
+                        text = "$count görev",
+                        fontSize = 14.sp,
+                        color = textSecondaryColor
+                    )
+                }
+            }
+            
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = "%$percentage",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+                
+                // Mini progress indicator
+                Box(
+                    modifier = Modifier
+                        .width(60.dp)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(textSecondaryColor.copy(alpha = 0.2f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(percentage / 100f)
+                            .background(color, RoundedCornerShape(2.dp))
+                    )
+                }
+            }
         }
     }
 }

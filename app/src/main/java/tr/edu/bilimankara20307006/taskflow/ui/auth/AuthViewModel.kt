@@ -65,12 +65,35 @@ class AuthViewModel(
             )
             
             // Input validation
-            if (email.isEmpty() || password.isEmpty()) {
-                _authState.value = _authState.value.copy(
-                    isLoading = false,
-                    errorMessage = "E-posta ve şifre boş olamaz"
-                )
-                return@launch
+            when {
+                email.isEmpty() -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Lütfen e-posta adresinizi girin"
+                    )
+                    return@launch
+                }
+                !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Geçerli bir e-posta adresi girin (örn: kullanici@email.com)"
+                    )
+                    return@launch
+                }
+                password.isEmpty() -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Lütfen şifrenizi girin"
+                    )
+                    return@launch
+                }
+                password.length < 6 -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Şifre en az 6 karakter olmalıdır"
+                    )
+                    return@launch
+                }
             }
             
             try {
@@ -86,6 +109,36 @@ class AuthViewModel(
                         photoUrl = firebaseUser.photoUrl?.toString()
                     )
                     
+                    // Kullanıcı Firestore'da yoksa kaydet (mevcut kullanıcılar için)
+                    val userEmail = user.email
+                    if (!userEmail.isNullOrEmpty()) {
+                        println("🔍 Kullanıcı Firestore'da kontrol ediliyor...")
+                        val searchResult = tr.edu.bilimankara20307006.taskflow.data.firebase.FirebaseManager.searchUserByEmail(userEmail)
+                        if (searchResult.isSuccess && searchResult.getOrNull() == null) {
+                            println("💾 Kullanıcı Firestore'da yok, kaydediliyor...")
+                            val saveResult = tr.edu.bilimankara20307006.taskflow.data.firebase.FirebaseManager.saveUserToFirestore(user)
+                            if (saveResult.isSuccess) {
+                                println("✅ Mevcut kullanıcı Firestore'a kaydedildi")
+                            }
+                        } else {
+                            println("✅ Kullanıcı zaten Firestore'da mevcut")
+                        }
+                    }
+                    
+                    // Eski projeleri migrate et
+                    viewModelScope.launch {
+                        try {
+                            println("🔧 Proje migration başlıyor...")
+                            val result = tr.edu.bilimankara20307006.taskflow.data.firebase.FirebaseManager.migrateOldProjects()
+                            if (result.isSuccess) {
+                                val count = result.getOrNull() ?: 0
+                                println("✅ Migration tamamlandı: $count proje güncellendi")
+                            }
+                        } catch (e: Exception) {
+                            println("⚠️ Migration hatası (göz ardı edildi): ${e.message}")
+                        }
+                    }
+                    
                     _authState.value = _authState.value.copy(
                         isAuthenticated = true,
                         isLoading = false,
@@ -99,14 +152,27 @@ class AuthViewModel(
                 } else {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
-                        errorMessage = "Giriş başarısız"
+                        errorMessage = "Giriş başarısız. Lütfen bilgilerinizi kontrol edin."
                     )
                 }
             } catch (e: Exception) {
                 println("❌ Giriş hatası: ${e.message}")
+                val errorMsg = when {
+                    e.message?.contains("no user record", ignoreCase = true) == true ||
+                    e.message?.contains("invalid-credential", ignoreCase = true) == true -> 
+                        "Bu e-posta ile kayıtlı kullanıcı bulunamadı. Lütfen önce üye olun."
+                    e.message?.contains("wrong-password", ignoreCase = true) == true ||
+                    e.message?.contains("invalid-credential", ignoreCase = true) == true -> 
+                        "E-posta veya şifre hatalı. Lütfen tekrar deneyin."
+                    e.message?.contains("too-many-requests", ignoreCase = true) == true -> 
+                        "Çok fazla başarısız giriş denemesi. Lütfen daha sonra tekrar deneyin."
+                    e.message?.contains("network", ignoreCase = true) == true -> 
+                        "İnternet bağlantınızı kontrol edin."
+                    else -> "Giriş başarısız: ${e.localizedMessage ?: "Bilinmeyen hata"}"
+                }
                 _authState.value = _authState.value.copy(
                     isLoading = false,
-                    errorMessage = e.localizedMessage ?: "Giriş başarısız"
+                    errorMessage = errorMsg
                 )
             }
         }
@@ -123,20 +189,35 @@ class AuthViewModel(
             )
             
             // Input validation
-            if (email.isEmpty() || password.isEmpty()) {
-                _authState.value = _authState.value.copy(
-                    isLoading = false,
-                    errorMessage = "E-posta ve şifre boş olamaz"
-                )
-                return@launch
-            }
-            
-            if (password.length < 6) {
-                _authState.value = _authState.value.copy(
-                    isLoading = false,
-                    errorMessage = "Şifre en az 6 karakter olmalı"
-                )
-                return@launch
+            when {
+                email.isEmpty() -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Lütfen e-posta adresinizi girin"
+                    )
+                    return@launch
+                }
+                !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches() -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Geçerli bir e-posta adresi girin (örn: kullanici@email.com)"
+                    )
+                    return@launch
+                }
+                password.isEmpty() -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Lütfen şifrenizi girin"
+                    )
+                    return@launch
+                }
+                password.length < 6 -> {
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Şifre en az 6 karakter olmalıdır"
+                    )
+                    return@launch
+                }
             }
             
             // Username yoksa email'den oluştur
@@ -165,10 +246,20 @@ class AuthViewModel(
                     
                     val user = User(
                         uid = firebaseUser.uid,
-                        email = firebaseUser.email ?: "",
                         displayName = finalUsername,
-                        photoUrl = firebaseUser.photoUrl?.toString()
+                        email = firebaseUser.email,
+                        photoUrl = firebaseUser.photoUrl?.toString(),
+                        createdAt = System.currentTimeMillis()
                     )
+                    
+                    // Kullanıcıyı Firestore'a kaydet (iOS gibi) - Email arama için gerekli
+                    println("💾 Kullanıcı Firestore'a kaydediliyor...")
+                    val saveResult = tr.edu.bilimankara20307006.taskflow.data.firebase.FirebaseManager.saveUserToFirestore(user)
+                    if (saveResult.isFailure) {
+                        println("⚠️ Firestore'a kaydetme hatası: ${saveResult.exceptionOrNull()?.message}")
+                    } else {
+                        println("✅ Kullanıcı Firestore'a kaydedildi - Email ile arama yapılabilir")
+                    }
                     
                     _authState.value = _authState.value.copy(
                         isAuthenticated = true,
@@ -182,14 +273,25 @@ class AuthViewModel(
                 } else {
                     _authState.value = _authState.value.copy(
                         isLoading = false,
-                        errorMessage = "Kayıt başarısız"
+                        errorMessage = "Kayıt başarısız. Lütfen tekrar deneyin."
                     )
                 }
             } catch (e: Exception) {
                 println("❌ Kayıt hatası: ${e.message}")
+                val errorMsg = when {
+                    e.message?.contains("email-already-in-use", ignoreCase = true) == true -> 
+                        "Bu e-posta adresi zaten kullanılıyor. Lütfen giriş yapın veya başka bir e-posta deneyin."
+                    e.message?.contains("invalid-email", ignoreCase = true) == true -> 
+                        "Geçersiz e-posta adresi. Lütfen kontrol edin."
+                    e.message?.contains("weak-password", ignoreCase = true) == true -> 
+                        "Şifreniz çok zayıf. En az 6 karakter kullanın."
+                    e.message?.contains("network", ignoreCase = true) == true -> 
+                        "İnternet bağlantınızı kontrol edin."
+                    else -> "Kayıt başarısız: ${e.localizedMessage ?: "Bilinmeyen hata"}"
+                }
                 _authState.value = _authState.value.copy(
                     isLoading = false,
-                    errorMessage = e.localizedMessage ?: "Kayıt başarısız"
+                    errorMessage = errorMsg
                 )
             }
         }

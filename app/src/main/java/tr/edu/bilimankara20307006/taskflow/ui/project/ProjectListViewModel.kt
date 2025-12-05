@@ -7,16 +7,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
-import tr.edu.bilimankara20307006.taskflow.data.model.ProjectStatus
-import tr.edu.bilimankara20307006.taskflow.data.network.model.ProjectResponse
-import tr.edu.bilimankara20307006.taskflow.data.repository.NetworkResult
 import tr.edu.bilimankara20307006.taskflow.data.repository.ProjectRepository
-import tr.edu.bilimankara20307006.taskflow.data.storage.TokenManager
 
 /**
  * ProjectListViewModel - Proje listesi için state yönetimi
  * 
- * Backend'den projeleri yükler, oluşturur, günceller ve siler.
+ * Firebase Firestore'dan projeleri yükler, oluşturur, günceller ve siler.
  */
 data class ProjectListState(
     val projects: List<Project> = emptyList(),
@@ -27,45 +23,62 @@ data class ProjectListState(
 
 class ProjectListViewModel : ViewModel() {
     
-    private val projectRepository = ProjectRepository.getInstance { TokenManager.getToken() }
+    private val projectRepository = ProjectRepository.getInstance()
     
     private val _state = MutableStateFlow(ProjectListState())
     val state: StateFlow<ProjectListState> = _state.asStateFlow()
     
     init {
-        // ViewModel oluşturulduğunda projeleri yükle
-        loadProjects()
+        // ViewModel oluşturulduğunda real-time dinleyici başlat
+        startRealtimeListener()
     }
     
     /**
-     * Backend'den tüm projeleri yükler.
+     * Real-time Firebase listener başlat - iOS gibi otomatik güncelleme
+     */
+    private fun startRealtimeListener() {
+        println("🎧 Real-time listener başlatılıyor...")
+        projectRepository.observeProjects(
+            onUpdate = { projects ->
+                println("✅ Real-time güncelleme alındı: ${projects.size} proje")
+                _state.value = _state.value.copy(
+                    projects = projects,
+                    isLoading = false,
+                    errorMessage = null
+                )
+            },
+            onError = { error ->
+                println("❌ Real-time listener hatası: ${error.message}")
+                _state.value = _state.value.copy(
+                    isLoading = false,
+                    errorMessage = error.message
+                )
+            }
+        )
+    }
+    
+    /**
+     * Firebase'den tüm projeleri yükler.
      */
     fun loadProjects() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, errorMessage = null)
             
-            when (val result = projectRepository.getProjects()) {
-                is NetworkResult.Success -> {
-                    val projects = result.data.data.map { it.toProject() }
+            projectRepository.getProjects()
+                .onSuccess { projects ->
                     _state.value = _state.value.copy(
                         projects = projects,
                         isLoading = false,
                         errorMessage = null
                     )
                 }
-                is NetworkResult.Error -> {
-                    // GEÇİCİ: Backend yokken sample data kullan
-                    // TODO: Backend hazır olduğunda bu fallback'i kaldır
+                .onFailure { error ->
                     _state.value = _state.value.copy(
-                        projects = Project.sampleProjects, // Fallback to sample data
+                        projects = emptyList(),
                         isLoading = false,
-                        errorMessage = "Backend bağlantısı kurulamadı, örnek veriler gösteriliyor"
+                        errorMessage = error.message ?: "Projeler yüklenirken hata oluştu"
                     )
                 }
-                is NetworkResult.Loading -> {
-                    // Already handled
-                }
-            }
         }
     }
     
@@ -76,25 +89,20 @@ class ProjectListViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isRefreshing = true, errorMessage = null)
             
-            when (val result = projectRepository.getProjects()) {
-                is NetworkResult.Success -> {
-                    val projects = result.data.data.map { it.toProject() }
+            projectRepository.getProjects()
+                .onSuccess { projects ->
                     _state.value = _state.value.copy(
                         projects = projects,
                         isRefreshing = false,
                         errorMessage = null
                     )
                 }
-                is NetworkResult.Error -> {
+                .onFailure { error ->
                     _state.value = _state.value.copy(
                         isRefreshing = false,
-                        errorMessage = result.message
+                        errorMessage = error.message
                     )
                 }
-                is NetworkResult.Loading -> {
-                    // Already handled
-                }
-            }
         }
     }
     
@@ -106,32 +114,30 @@ class ProjectListViewModel : ViewModel() {
         description: String,
         iconName: String = "folder",
         iconColor: String = "blue",
-        dueDate: String? = null
+        dueDate: String? = null,
+        teamMemberIds: List<String>? = null
     ) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, errorMessage = null)
             
-            when (val result = projectRepository.createProject(
+            projectRepository.createProject(
                 title = title,
                 description = description,
                 iconName = iconName,
                 iconColor = iconColor,
-                dueDate = dueDate
-            )) {
-                is NetworkResult.Success -> {
+                dueDate = dueDate,
+                teamMemberIds = teamMemberIds
+            )
+                .onSuccess {
                     // Yeni proje eklendi, listeyi yenile
                     loadProjects()
                 }
-                is NetworkResult.Error -> {
+                .onFailure { error ->
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = result.message
+                        errorMessage = error.message ?: "Proje oluşturulamadı"
                     )
                 }
-                is NetworkResult.Loading -> {
-                    // Already handled
-                }
-            }
         }
     }
     
@@ -150,7 +156,7 @@ class ProjectListViewModel : ViewModel() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, errorMessage = null)
             
-            when (val result = projectRepository.updateProject(
+            projectRepository.updateProject(
                 projectId = projectId,
                 title = title,
                 description = description,
@@ -158,49 +164,50 @@ class ProjectListViewModel : ViewModel() {
                 iconColor = iconColor,
                 status = status,
                 dueDate = dueDate
-            )) {
-                is NetworkResult.Success -> {
+            )
+                .onSuccess {
                     // Proje güncellendi, listeyi yenile
                     loadProjects()
                 }
-                is NetworkResult.Error -> {
+                .onFailure { error ->
                     _state.value = _state.value.copy(
                         isLoading = false,
-                        errorMessage = result.message
+                        errorMessage = error.message ?: "Proje güncellenemedi"
                     )
                 }
-                is NetworkResult.Loading -> {
-                    // Already handled
-                }
-            }
         }
     }
     
     /**
-     * Projeyi siler.
+     * Projeyi siler - hem Firebase'den hem de local state'ten.
      */
     fun deleteProject(projectId: String) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(isLoading = true, errorMessage = null)
+            println("🔄 ViewModel: Proje silme başladı - $projectId")
             
-            when (val result = projectRepository.deleteProject(projectId)) {
-                is NetworkResult.Success -> {
-                    // Proje silindi, local listeden de kaldır
+            // Önce local listeden kaldır (UI anında güncellensin)
+            val updatedProjects = _state.value.projects.filter { it.id != projectId }
+            _state.value = _state.value.copy(
+                projects = updatedProjects,
+                errorMessage = null
+            )
+            println("✅ ViewModel: Local listeden kaldırıldı, kalan proje sayısı: ${updatedProjects.size}")
+            
+            // Sonra Firebase'den sil
+            projectRepository.deleteProject(projectId)
+                .onSuccess {
+                    println("✅ ViewModel: Firebase'den silme başarılı")
+                }
+                .onFailure { error ->
+                    println("❌ ViewModel: Firebase'den silme hatası: ${error.message}")
+                    // Hata durumunda projeyi geri ekle
                     _state.value = _state.value.copy(
-                        projects = _state.value.projects.filter { it.id != projectId },
-                        isLoading = false
+                        projects = _state.value.projects,
+                        errorMessage = error.message ?: "Proje silinemedi"
                     )
+                    // Listeyi yeniden yükle
+                    loadProjects()
                 }
-                is NetworkResult.Error -> {
-                    _state.value = _state.value.copy(
-                        isLoading = false,
-                        errorMessage = result.message
-                    )
-                }
-                is NetworkResult.Loading -> {
-                    // Already handled
-                }
-            }
         }
     }
     
@@ -212,24 +219,11 @@ class ProjectListViewModel : ViewModel() {
     }
     
     /**
-     * ProjectResponse'u Project modeline dönüştürür.
+     * Belirli bir projenin görevlerini getirir.
      */
-    private fun ProjectResponse.toProject(): Project {
-        return Project(
-            id = this.id,
-            title = this.title,
-            description = this.description,
-            iconName = this.iconName ?: "folder",
-            iconColor = this.iconColor ?: "blue",
-            status = when (this.status) {
-                "TODO" -> ProjectStatus.TODO
-                "IN_PROGRESS" -> ProjectStatus.IN_PROGRESS
-                "COMPLETED" -> ProjectStatus.COMPLETED
-                else -> ProjectStatus.TODO
-            },
-            isCompleted = this.isCompleted,
-            tasksCount = this.tasksCount,
-            completedTasksCount = this.completedTasksCount
-        )
+    fun getTasksForProject(projectId: String): List<tr.edu.bilimankara20307006.taskflow.data.model.Task> {
+        // TODO: Firebase'den gerçek görevleri çek
+        // Şimdilik boş liste dönüyoruz
+        return emptyList()
     }
 }

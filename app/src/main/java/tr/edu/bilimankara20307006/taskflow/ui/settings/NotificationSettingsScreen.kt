@@ -1,15 +1,17 @@
 package tr.edu.bilimankara20307006.taskflow.ui.settings
 
+import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,56 +25,53 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 
-/**
- * Bildirim Ayarları Ekranı
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationSettingsScreen(
-    onBackClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale // Force recomposition on locale change
+    val prefs = remember { context.getSharedPreferences("notification_prefs", Context.MODE_PRIVATE) }
     
-    // Back button handling
-    BackHandler(enabled = true) {
-        onBackClick()
-    }
+    // State - iOS-style notification settings
+    var pushNotificationsEnabled by remember { mutableStateOf(prefs.getBoolean("push_enabled", true)) }
+    var taskReminders by remember { mutableStateOf(prefs.getBoolean("task_reminders", true)) }
+    var projectUpdates by remember { mutableStateOf(prefs.getBoolean("project_updates", true)) }
+    var teamActivity by remember { mutableStateOf(prefs.getBoolean("team_activity", false)) }
+    var emailNotifications by remember { mutableStateOf(prefs.getBoolean("email_notifications", false)) }
     
     // Animation states
-    var headerVisible by remember { mutableStateOf(false) }
-    var contentVisible by remember { mutableStateOf(false) }
+    var headerAlpha by remember { mutableFloatStateOf(0f) }
+    var contentAlpha by remember { mutableFloatStateOf(0f) }
     
     LaunchedEffect(Unit) {
+        delay(50)
+        headerAlpha = 1f
         delay(100)
-        headerVisible = true
-        delay(150)
-        contentVisible = true
+        contentAlpha = 1f
     }
     
-    val headerAlpha by animateFloatAsState(
-        targetValue = if (headerVisible) 1f else 0f,
+    val animatedHeaderAlpha by animateFloatAsState(
+        targetValue = headerAlpha,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         label = "headerAlpha"
     )
     
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (contentVisible) 1f else 0f,
+    val animatedContentAlpha by animateFloatAsState(
+        targetValue = contentAlpha,
         animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
         label = "contentAlpha"
     )
     
-    // Notification preferences
-    var notificationPreference by remember { mutableStateOf("all") } // all, mentions, none
-    var notificationSound by remember { mutableStateOf("ring_vibrate") } // ring_vibrate, vibrate_only
-    var showDisableDialog by remember { mutableStateOf(false) }
-    
     // Theme colors
-    val darkBackground = MaterialTheme.colorScheme.background
-    val cardBackground = MaterialTheme.colorScheme.surface
-    val textColor = MaterialTheme.colorScheme.onBackground
-    val textSecondaryColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val primaryTextColor = MaterialTheme.colorScheme.onBackground
+    val secondaryTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+    
+    BackHandler { onBackClick() }
     
     Scaffold(
         topBar = {
@@ -80,215 +79,184 @@ fun NotificationSettingsScreen(
                 title = {
                     Text(
                         text = if (localizationManager.currentLocale == "tr") 
-                            "Bildirim Ayarları" else "Notification Settings",
+                            "Bildirimler" else "Notifications",
                         fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = textColor,
-                        modifier = Modifier.alpha(headerAlpha)
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.alpha(animatedHeaderAlpha)
                     )
                 },
                 navigationIcon = {
                     IconButton(
                         onClick = onBackClick,
-                        modifier = Modifier.alpha(headerAlpha)
+                        modifier = Modifier.alpha(animatedHeaderAlpha)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = localizationManager.localizedString("Back"),
-                            tint = textColor
+                            contentDescription = if (localizationManager.currentLocale == "tr") 
+                                "Geri" else "Back"
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = darkBackground
+                    containerColor = backgroundColor,
+                    titleContentColor = primaryTextColor,
+                    navigationIconContentColor = primaryTextColor
                 )
             )
         },
-        containerColor = darkBackground
+        containerColor = backgroundColor
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 20.dp, vertical = 20.dp)
-                .alpha(contentAlpha),
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+                .alpha(animatedContentAlpha),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Notification Preference Section
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            // Bildirimler Section (iOS'taki gibi)
+            Text(
+                text = if (localizationManager.currentLocale == "tr") 
+                    "Bildirimler" else "Notifications",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = secondaryTextColor
+            )
+            
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = surfaceColor,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = if (localizationManager.currentLocale == "tr") 
-                        "Bildirim Tercihi" else "Notification Preference",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-                
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = cardBackground,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column {
-                        // All notifications
-                        NotificationPreferenceItem(
-                            title = if (localizationManager.currentLocale == "tr") "Tümü" else "All",
-                            description = if (localizationManager.currentLocale == "tr") 
-                                "Tüm bildirimleri al" else "Receive all notifications",
-                            isSelected = notificationPreference == "all",
-                            onClick = { notificationPreference = "all" }
-                        )
-                        
-                        HorizontalDivider(color = textSecondaryColor.copy(alpha = 0.1f))
-                        
-                        // Mentions only
-                        NotificationPreferenceItem(
-                            title = if (localizationManager.currentLocale == "tr") 
-                                "Sadece Hakkımdakiler" else "Mentions Only",
-                            description = if (localizationManager.currentLocale == "tr") 
-                                "Sadece seni etiketleyen bildirimleri al" 
-                            else "Only receive notifications when mentioned",
-                            isSelected = notificationPreference == "mentions",
-                            onClick = { notificationPreference = "mentions" }
-                        )
-                        
-                        HorizontalDivider(color = textSecondaryColor.copy(alpha = 0.1f))
-                        
-                        // None
-                        NotificationPreferenceItem(
-                            title = if (localizationManager.currentLocale == "tr") "Hiçbiri" else "None",
-                            description = if (localizationManager.currentLocale == "tr") 
-                                "Bildirimleri kapat" else "Turn off notifications",
-                            isSelected = notificationPreference == "none",
-                            onClick = { 
-                                if (notificationPreference != "none") {
-                                    showDisableDialog = true
-                                }
-                            }
-                        )
-                    }
+                Column {
+                    NotificationToggleItem(
+                        title = if (localizationManager.currentLocale == "tr") 
+                            "Push Bildirimlerini Etkinleştir" else "Enable Push Notifications",
+                        description = if (localizationManager.currentLocale == "tr")
+                            "Cihazınızda bildirim alın"
+                        else "Receive notifications on your device",
+                        isChecked = pushNotificationsEnabled,
+                        onCheckedChange = { 
+                            pushNotificationsEnabled = it
+                            prefs.edit().putBoolean("push_enabled", it).apply()
+                        },
+                        textColor = primaryTextColor,
+                        secondaryTextColor = secondaryTextColor
+                    )
+                    
+                    HorizontalDivider(
+                        color = secondaryTextColor.copy(alpha = 0.1f),
+                        modifier = Modifier.padding(start = 16.dp)
+                    )
+                    
+                    NotificationToggleItem(
+                        title = if (localizationManager.currentLocale == "tr") 
+                            "Görev Hatırlatıcıları" else "Task Reminders",
+                        description = if (localizationManager.currentLocale == "tr")
+                            "Yaklaşan görevler için hatırlatma alın"
+                        else "Get reminders for upcoming tasks",
+                        isChecked = taskReminders,
+                        onCheckedChange = { 
+                            taskReminders = it
+                            prefs.edit().putBoolean("task_reminders", it).apply()
+                        },
+                        textColor = primaryTextColor,
+                        secondaryTextColor = secondaryTextColor
+                    )
+                    
+                    HorizontalDivider(
+                        color = secondaryTextColor.copy(alpha = 0.1f),
+                        modifier = Modifier.padding(start = 16.dp)
+                    )
+                    
+                    NotificationToggleItem(
+                        title = if (localizationManager.currentLocale == "tr") 
+                            "Proje Güncellemeleri" else "Project Updates",
+                        description = if (localizationManager.currentLocale == "tr")
+                            "Proje değişiklikleri hakkında güncel kalın"
+                        else "Stay updated on project changes",
+                        isChecked = projectUpdates,
+                        onCheckedChange = { 
+                            projectUpdates = it
+                            prefs.edit().putBoolean("project_updates", it).apply()
+                        },
+                        textColor = primaryTextColor,
+                        secondaryTextColor = secondaryTextColor
+                    )
+                    
+                    HorizontalDivider(
+                        color = secondaryTextColor.copy(alpha = 0.1f),
+                        modifier = Modifier.padding(start = 16.dp)
+                    )
+                    
+                    NotificationToggleItem(
+                        title = if (localizationManager.currentLocale == "tr") 
+                            "Ekip Aktivitesi" else "Team Activity",
+                        description = if (localizationManager.currentLocale == "tr")
+                            "Ekip üyesi eylemleri hakkında bildirim alın"
+                        else "Get notified about team member actions",
+                        isChecked = teamActivity,
+                        onCheckedChange = { 
+                            teamActivity = it
+                            prefs.edit().putBoolean("team_activity", it).apply()
+                        },
+                        textColor = primaryTextColor,
+                        secondaryTextColor = secondaryTextColor
+                    )
                 }
             }
             
-            // Notification Sound Section
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            // E-posta Bildirimleri Section
+            Text(
+                text = if (localizationManager.currentLocale == "tr") 
+                    "E-posta Bildirimleri" else "Email Notifications",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = secondaryTextColor
+            )
+            
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = surfaceColor,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = if (localizationManager.currentLocale == "tr") 
-                        "Bildirim Şekli" else "Notification Type",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-                
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = cardBackground,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column {
-                        // Ring and Vibrate
-                        NotificationSoundItem(
-                            title = if (localizationManager.currentLocale == "tr") 
-                                "Çal ve Titret" else "Ring and Vibrate",
-                            icon = Icons.AutoMirrored.Filled.VolumeUp,
-                            isSelected = notificationSound == "ring_vibrate",
-                            onClick = { notificationSound = "ring_vibrate" }
-                        )
-                        
-                        HorizontalDivider(color = textSecondaryColor.copy(alpha = 0.1f))
-                        
-                        // Vibrate Only
-                        NotificationSoundItem(
-                            title = if (localizationManager.currentLocale == "tr") 
-                                "Sadece Titret" else "Vibrate Only",
-                            icon = Icons.Default.Vibration,
-                            isSelected = notificationSound == "vibrate_only",
-                            onClick = { notificationSound = "vibrate_only" }
-                        )
-                    }
+                Column {
+                    NotificationToggleItem(
+                        title = if (localizationManager.currentLocale == "tr") 
+                            "E-posta Bildirimleri" else "Email Notifications",
+                        description = if (localizationManager.currentLocale == "tr")
+                            "Güncellemeleri e-posta ile alın"
+                        else "Receive updates via email",
+                        isChecked = emailNotifications,
+                        onCheckedChange = { 
+                            emailNotifications = it
+                            prefs.edit().putBoolean("email_notifications", it).apply()
+                        },
+                        textColor = primaryTextColor,
+                        secondaryTextColor = secondaryTextColor
+                    )
                 }
             }
+            
+            Spacer(modifier = Modifier.height(32.dp))
         }
-    }
-    
-    // Disable Notifications Confirmation Dialog
-    if (showDisableDialog) {
-        AlertDialog(
-            onDismissRequest = { showDisableDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = Color(0xFFFF9500),
-                    modifier = Modifier.size(32.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = if (localizationManager.currentLocale == "tr") 
-                        "Bildirimleri Kapat?" else "Turn Off Notifications?",
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    text = if (localizationManager.currentLocale == "tr") 
-                        "Bildirimleri tamamen kapatmak projelerde iletişim sıkıntısı çıkartacaktır. Kapatmak istediğinizden emin misiniz?"
-                    else "Turning off notifications completely will cause communication issues in projects. Are you sure you want to turn them off?",
-                    fontSize = 14.sp
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        notificationPreference = "none"
-                        showDisableDialog = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFFFF3B30)
-                    )
-                ) {
-                    Text(
-                        text = if (localizationManager.currentLocale == "tr") "Kapat" else "Turn Off",
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showDisableDialog = false }
-                ) {
-                    Text(
-                        text = localizationManager.localizedString("Cancel"),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            },
-            containerColor = cardBackground,
-            shape = RoundedCornerShape(16.dp)
-        )
     }
 }
 
 @Composable
-private fun NotificationPreferenceItem(
+private fun NotificationToggleItem(
     title: String,
-    description: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
+    description: String?,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    textColor: Color,
+    secondaryTextColor: Color,
     modifier: Modifier = Modifier
 ) {
-    val textColor = MaterialTheme.colorScheme.onBackground
-    val textSecondaryColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-    
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
             .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -303,64 +271,27 @@ private fun NotificationPreferenceItem(
                 fontWeight = FontWeight.Medium,
                 color = textColor
             )
-            Text(
-                text = description,
-                fontSize = 14.sp,
-                color = textSecondaryColor
-            )
+            if (description != null) {
+                Text(
+                    text = description,
+                    fontSize = 14.sp,
+                    color = secondaryTextColor,
+                    lineHeight = 18.sp
+                )
+            }
         }
         
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = Color(0xFF4CAF50),
-                unselectedColor = textSecondaryColor
+        Switch(
+            checked = isChecked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFF4CAF50),
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = secondaryTextColor.copy(alpha = 0.3f)
             )
         )
     }
 }
 
-@Composable
-private fun NotificationSoundItem(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val textColor = MaterialTheme.colorScheme.onBackground
-    
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isSelected) Color(0xFF4CAF50) else textColor,
-            modifier = Modifier.size(24.dp)
-        )
-        
-        Text(
-            text = title,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            color = textColor,
-            modifier = Modifier.weight(1f)
-        )
-        
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = Color(0xFF4CAF50),
-                unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-        )
-    }
-}
+

@@ -1,32 +1,26 @@
 package tr.edu.bilimankara20307006.taskflow.data.repository
 
-import tr.edu.bilimankara20307006.taskflow.data.network.RetrofitClient
-import tr.edu.bilimankara20307006.taskflow.data.network.model.*
+import tr.edu.bilimankara20307006.taskflow.data.firebase.FirebaseManager
+import tr.edu.bilimankara20307006.taskflow.data.model.Project
 
 /**
  * Project Repository
- * Proje işlemlerini yönetir
+ * Firebase Firestore üzerinden proje işlemlerini yönetir
  */
-class ProjectRepository(private val tokenProvider: () -> String?) {
-    
-    private val projectApi = RetrofitClient.getProjectApi(tokenProvider)
+class ProjectRepository {
     
     /**
      * Tüm projeleri getir
      */
-    suspend fun getProjects(): NetworkResult<ProjectsResponse> {
-        return safeApiCall {
-            projectApi.getProjects("Bearer ${tokenProvider()}")
-        }
+    suspend fun getProjects(): Result<List<Project>> {
+        return FirebaseManager.getProjects()
     }
     
     /**
      * ID'ye göre proje getir
      */
-    suspend fun getProjectById(projectId: String): NetworkResult<ProjectResponse> {
-        return safeApiCall {
-            projectApi.getProjectById("Bearer ${tokenProvider()}", projectId)
-        }
+    suspend fun getProjectById(projectId: String): Result<Project> {
+        return FirebaseManager.getProjectById(projectId)
     }
     
     /**
@@ -35,12 +29,12 @@ class ProjectRepository(private val tokenProvider: () -> String?) {
     suspend fun createProject(
         title: String,
         description: String,
-        iconName: String? = "folder",
-        iconColor: String? = "blue",
+        iconName: String = "folder",
+        iconColor: String = "blue",
         dueDate: String? = null,
         teamMemberIds: List<String>? = null
-    ): NetworkResult<ProjectResponse> {
-        val request = CreateProjectRequest(
+    ): Result<Project> {
+        return FirebaseManager.createProject(
             title = title,
             description = description,
             iconName = iconName,
@@ -48,10 +42,6 @@ class ProjectRepository(private val tokenProvider: () -> String?) {
             dueDate = dueDate,
             teamMemberIds = teamMemberIds
         )
-        
-        return safeApiCall {
-            projectApi.createProject("Bearer ${tokenProvider()}", request)
-        }
     }
     
     /**
@@ -64,40 +54,75 @@ class ProjectRepository(private val tokenProvider: () -> String?) {
         status: String? = null,
         iconName: String? = null,
         iconColor: String? = null,
-        isCompleted: Boolean? = null,
         dueDate: String? = null
-    ): NetworkResult<ProjectResponse> {
-        val request = UpdateProjectRequest(
+    ): Result<Unit> {
+        return FirebaseManager.updateProject(
+            projectId = projectId,
             title = title,
             description = description,
             status = status,
             iconName = iconName,
             iconColor = iconColor,
-            isCompleted = isCompleted,
             dueDate = dueDate
         )
-        
-        return safeApiCall {
-            projectApi.updateProject("Bearer ${tokenProvider()}", projectId, request)
-        }
     }
     
     /**
      * Projeyi sil
      */
-    suspend fun deleteProject(projectId: String): NetworkResult<Unit> {
-        return safeApiCall {
-            projectApi.deleteProject("Bearer ${tokenProvider()}", projectId)
-        }
+    suspend fun deleteProject(projectId: String): Result<Unit> {
+        return FirebaseManager.deleteProject(projectId)
+    }
+    
+    /**
+     * Real-time proje değişikliklerini dinle - iOS gibi
+     */
+    fun observeProjects(onUpdate: (List<Project>) -> Unit, onError: (Exception) -> Unit) {
+        FirebaseManager.observeProjects(onUpdate, onError)
+    }
+    
+    /**
+     * Projeye ait görevleri getir
+     */
+    suspend fun getTasks(projectId: String): Result<List<tr.edu.bilimankara20307006.taskflow.data.model.Task>> {
+        return FirebaseManager.getTasks(projectId)
+    }
+    
+    /**
+     * Kullanıcının tüm görevlerini getir - iOS gibi
+     */
+    suspend fun getAllTasks(): Result<List<tr.edu.bilimankara20307006.taskflow.data.model.Task>> {
+        return FirebaseManager.getAllTasks()
+    }
+    
+    /**
+     * Email ile kullanıcı ara - iOS ProjectManager searchUserByEmail
+     */
+    suspend fun searchUserByEmail(email: String): Result<tr.edu.bilimankara20307006.taskflow.data.model.User?> {
+        return FirebaseManager.searchUserByEmail(email)
+    }
+    
+    /**
+     * Projeye ekip üyesi ekle - iOS ProjectManager addTeamMember
+     */
+    suspend fun addTeamMember(userId: String, projectId: String): Result<Unit> {
+        return FirebaseManager.addTeamMember(userId, projectId)
+    }
+    
+    /**
+     * Projeden ekip üyesi çıkar - iOS ProjectManager removeTeamMember
+     */
+    suspend fun removeTeamMember(userId: String, projectId: String): Result<Unit> {
+        return FirebaseManager.removeTeamMember(userId, projectId)
     }
     
     companion object {
         @Volatile
         private var instance: ProjectRepository? = null
         
-        fun getInstance(tokenProvider: () -> String?): ProjectRepository {
+        fun getInstance(): ProjectRepository {
             return instance ?: synchronized(this) {
-                instance ?: ProjectRepository(tokenProvider).also { instance = it }
+                instance ?: ProjectRepository().also { instance = it }
             }
         }
     }

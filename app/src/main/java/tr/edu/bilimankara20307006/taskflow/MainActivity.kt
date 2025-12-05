@@ -10,6 +10,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,9 +65,13 @@ fun RaptiyeApp() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
     
+    // Kullanıcı durumunu dinle
+    val authState = authViewModel.authState.collectAsState()
+    val startDestination = if (authState.value.isAuthenticated) "main" else "login"
+    
     NavHost(
         navController = navController,
-        startDestination = "login",
+        startDestination = startDestination,
         enterTransition = {
             fadeIn(
                 animationSpec = tween(300, easing = FastOutSlowInEasing)

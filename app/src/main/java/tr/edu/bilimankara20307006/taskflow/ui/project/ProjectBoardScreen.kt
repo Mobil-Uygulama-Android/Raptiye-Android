@@ -22,44 +22,66 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
 import tr.edu.bilimankara20307006.taskflow.data.model.ProjectStatus
 import tr.edu.bilimankara20307006.taskflow.data.model.Task
+import tr.edu.bilimankara20307006.taskflow.data.model.TaskStatus
+import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 
 /**
- * Kanban Panosu Ekranı
- * Ekran görüntüsündeki tasarıma birebir uygun
+ * Kanban Panosu Ekranı - iOS BoardView ile birebir uyumlu
+ * Görevleri durumlarına göre (Yapılacaklar, Devam Ediyor, Tamamlandı) gösterir
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProjectBoardScreen(
+    projectId: String? = null,
     onBackClick: () -> Unit = {},
     onTaskClick: (Task) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val localizationManager = remember { LocalizationManager.getInstance(context) }
+    val currentLocale = localizationManager.currentLocale // Force recomposition on locale change
     // Renk tanımları
     val darkBackground = MaterialTheme.colorScheme.background
     val cardBackground = MaterialTheme.colorScheme.surface
-    val selectedTabColor = Color(0xFF4CAF50)
+    val selectedTabColor = Color(0xFF32D74B) // iOS yeşili
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     
-    // Tab'lar
-    val tabs = listOf("Yapılacaklar", "Devam Ediyor", "Tamamlandı")
+    // ViewModel
+    val viewModel: ProjectListViewModel = viewModel()
+    val state by viewModel.state.collectAsState()
+    
+    // Tab'lar - Localized
+    val tabs = listOf(
+        localizationManager.localizedString("Todo"),        // "Yapılacak" / "To Do"
+        localizationManager.localizedString("InProgress"),  // "Devam Eden" / "In Progress"
+        localizationManager.localizedString("Completed")    // "Tamamlandı" / "Completed"
+    )
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val coroutineScope = rememberCoroutineScope()
     
-    // Projeler
-    val projects = remember { Project.sampleProjects }
+    // Seçili proje
+    val selectedProject = remember(projectId, state.projects) {
+        projectId?.let { id -> state.projects.find { it.id == id } }
+    }
     
-    // Görevler - ilk proje için
-    val tasks = remember { Task.sampleTasks(projects.firstOrNull()?.id ?: "") }
+    // Görevler - seçili proje için
+    val tasks = remember(selectedProject) {
+        // TODO: Firebase'den gerçek görevleri çekecek
+        // Şimdilik sample görevler kullanıyoruz
+        selectedProject?.let { Task.sampleTasks(it.id) } ?: emptyList()
+    }
     
     // Animation states
     var topBarVisible by remember { mutableStateOf(false) }
@@ -93,7 +115,7 @@ fun ProjectBoardScreen(
         TopAppBar(
             title = {
                 Text(
-                    text = "Proje Panosu",
+                    text = selectedProject?.title ?: localizationManager.localizedString("ProjectBoard"),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = textColor
@@ -164,18 +186,27 @@ fun ProjectBoardScreen(
         ) { page ->
             when (page) {
                 0 -> TaskListTab(
-                    tasks = tasks.filter { !it.isCompleted },
+                    tasks = tasks.filter { it.status == TaskStatus.TODO },
                     cardBackground = cardBackground,
+                    textColor = textColor,
+                    textSecondaryColor = textSecondaryColor,
+                    localizationManager = localizationManager,
                     onTaskClick = onTaskClick
                 )
                 1 -> TaskListTab(
-                    tasks = tasks.filter { !it.isCompleted },
+                    tasks = tasks.filter { it.status == TaskStatus.IN_PROGRESS },
                     cardBackground = cardBackground,
+                    textColor = textColor,
+                    textSecondaryColor = textSecondaryColor,
+                    localizationManager = localizationManager,
                     onTaskClick = onTaskClick
                 )
                 2 -> TaskListTab(
-                    tasks = tasks.filter { it.isCompleted },
+                    tasks = tasks.filter { it.status == TaskStatus.COMPLETED },
                     cardBackground = cardBackground,
+                    textColor = textColor,
+                    textSecondaryColor = textSecondaryColor,
+                    localizationManager = localizationManager,
                     onTaskClick = onTaskClick
                 )
             }
@@ -190,39 +221,74 @@ fun ProjectBoardScreen(
 private fun TaskListTab(
     tasks: List<Task>,
     cardBackground: Color,
+    textColor: Color,
+    textSecondaryColor: Color,
+    localizationManager: LocalizationManager,
     onTaskClick: (Task) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(tasks) { task ->
-            TaskCard(
-                task = task,
-                cardBackground = cardBackground,
-                onClick = { onTaskClick(task) }
-            )
+    if (tasks.isEmpty()) {
+        // Boş durum mesajı
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Assignment,
+                    contentDescription = null,
+                    tint = textSecondaryColor.copy(alpha = 0.4f),
+                    modifier = Modifier.size(64.dp)
+                )
+                Text(
+                    text = localizationManager.localizedString("NoTasksYet"),
+                    fontSize = 16.sp,
+                    color = textSecondaryColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(tasks) { task ->
+                TaskCard(
+                    task = task,
+                    cardBackground = cardBackground,
+                    textColor = textColor,
+                    textSecondaryColor = textSecondaryColor,
+                    localizationManager = localizationManager,
+                    onClick = { onTaskClick(task) }
+                )
+            }
         }
     }
 }
 
 /**
- * Görev kartı - Ekran görüntüsündeki tasarım
+ * Görev kartı - iOS TaskCard ile birebir uyumlu
+ * Görev başlığı, açıklaması, son teslim tarihi ve atanan kişiyi gösterir
  */
 @Composable
 private fun TaskCard(
     task: Task,
     cardBackground: Color,
+    textColor: Color,
+    textSecondaryColor: Color,
+    localizationManager: LocalizationManager,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
-    
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -230,53 +296,111 @@ private fun TaskCard(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = cardBackground
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Sol taraf - Icon
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(
-                        color = Color(0xFF4CAF50).copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = null,
-                    tint = Color(0xFF4CAF50),
-                    modifier = Modifier.size(24.dp)
+            // Başlık
+            Text(
+                text = task.title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            // Açıklama (varsa)
+            if (task.description.isNotEmpty()) {
+                Text(
+                    text = task.description,
+                    fontSize = 14.sp,
+                    color = textSecondaryColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             
-            // Orta - Başlık ve tarih
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            // Alt bilgiler: Atanan kişi ve tarih
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = task.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = textColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // Atanan kişi
+                if (task.assignee != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Avatar circle
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF32D74B).copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = task.assignee.initials,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF32D74B)
+                            )
+                        }
+                        Text(
+                            text = task.assignee.displayName ?: task.assignee.email ?: "Unknown",
+                            fontSize = 14.sp,
+                            color = textColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                } else {
+                    // Atanmamış
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = textSecondaryColor.copy(alpha = 0.5f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = localizationManager.localizedString("Unassigned"),
+                            fontSize = 14.sp,
+                            color = textSecondaryColor,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+                }
                 
-                if (task.dueDate != null) {
-                    Text(
-                        text = "Son teslim: ${task.formattedDueDate}",
-                        fontSize = 14.sp,
-                        color = textSecondaryColor
-                    )
+                // Son teslim tarihi (varsa)
+                if (task.dueDate != null && task.dueDate.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarToday,
+                            contentDescription = null,
+                            tint = textSecondaryColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = task.formattedDueDate,
+                            fontSize = 12.sp,
+                            color = textSecondaryColor
+                        )
+                    }
                 }
             }
         }

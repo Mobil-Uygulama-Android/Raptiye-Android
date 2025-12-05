@@ -6,87 +6,101 @@ import java.util.Locale
 import java.util.UUID
 
 /**
- * Görev Data Modeli
+ * Görev Durumu
+ */
+enum class TaskStatus {
+    TODO,        // Yapılacak
+    IN_PROGRESS, // Devam Ediyor
+    COMPLETED    // Tamamlandı
+}
+
+/**
+ * Görev Data Modeli - Firebase uyumlu
  */
 data class Task(
     val id: String = UUID.randomUUID().toString(),
+    val projectId: String,
     val title: String,
     val description: String,
+    val status: TaskStatus = TaskStatus.TODO,
+    val priority: String = "medium",
+    val assigneeId: String = "",
+    val creatorId: String = "",
+    val dueDate: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+    // Eski alanlar (geriye dönük uyumluluk için)
     val assignee: User? = null,
-    val dueDate: Date? = null,
-    val isCompleted: Boolean = false,
-    val projectId: String,
-    val createdDate: Date = Date(),
+    val isCompleted: Boolean = (status == TaskStatus.COMPLETED),
+    val createdDate: Date = Date(createdAt),
     val comments: List<Comment> = emptyList()
 ) {
     /**
      * Son teslim tarihi formatlanmış
      */
     val formattedDueDate: String
-        get() {
-            if (dueDate == null) return ""
-            val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            return formatter.format(dueDate)
-        }
+        get() = dueDate ?: ""
     
     companion object {
         /**
-         * Örnek görevler
+         * Örnek görevler - Demo amaçlı
          */
         fun sampleTasks(projectId: String): List<Task> {
-            val user1 = User(
-                uid = "1",
-                displayName = "Emily Carter",
-                email = "emily@example.com",
-                photoUrl = null
-            )
-            
-            val user2 = User(
-                uid = "2",
-                displayName = "David Lee",
-                email = "david@example.com",
-                photoUrl = null
-            )
-            
-            val comment1 = Comment(
-                id = "1",
-                text = "Initial project scope and objectives defined.",
-                author = user1,
-                createdDate = Date(System.currentTimeMillis() - 2 * 24 * 60 * 60 * 1000)
-            )
-            
-            val comment2 = Comment(
-                id = "2",
-                text = "Resources and tools required for the project identified.",
-                author = user2,
-                createdDate = Date(System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000)
-            )
-            
+            val sampleUsers = User.sampleUsers
             return listOf(
                 Task(
+                    projectId = projectId,
                     title = "UI/UX Design for Mobile App",
                     description = "Create a modern and user-friendly interface for the new student project tracking application.",
-                    assignee = user1,
-                    dueDate = Date(System.currentTimeMillis() + 20L * 24 * 60 * 60 * 1000), // 20 gün sonra
-                    projectId = projectId,
-                    comments = listOf(comment1, comment2)
+                    status = TaskStatus.TODO,
+                    priority = "high",
+                    assignee = sampleUsers[0], // Emily Carter
+                    dueDate = "2024-01-30"
                 ),
                 Task(
+                    projectId = projectId,
                     title = "Backend API Development",
                     description = "Develop RESTful API endpoints for project and task management.",
-                    assignee = user2,
-                    dueDate = Date(System.currentTimeMillis() + 45L * 24 * 60 * 60 * 1000), // 45 gün sonra
-                    projectId = projectId,
-                    comments = emptyList()
+                    status = TaskStatus.IN_PROGRESS,
+                    priority = "high",
+                    assignee = sampleUsers[1], // David Lee
+                    dueDate = "2024-01-25"
                 ),
                 Task(
+                    projectId = projectId,
                     title = "Database Schema Design",
                     description = "Design and implement database schema for storing projects, tasks, and user data.",
-                    assignee = user1,
-                    dueDate = Date(System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000), // 30 gün sonra
+                    status = TaskStatus.COMPLETED,
+                    priority = "medium",
+                    assignee = sampleUsers[2], // Ahmet Yılmaz
+                    dueDate = "2024-01-20"
+                ),
+                Task(
                     projectId = projectId,
-                    isCompleted = true,
-                    comments = emptyList()
+                    title = "Write Unit Tests",
+                    description = "Write comprehensive unit tests for all API endpoints and business logic.",
+                    status = TaskStatus.TODO,
+                    priority = "medium",
+                    assignee = sampleUsers[3], // Ayşe Demir
+                    dueDate = "2024-02-05"
+                ),
+                Task(
+                    projectId = projectId,
+                    title = "Code Review & Refactoring",
+                    description = "Review existing codebase and refactor where necessary to improve code quality.",
+                    status = TaskStatus.IN_PROGRESS,
+                    priority = "low",
+                    assignee = null, // Atanmamış
+                    dueDate = null
+                ),
+                Task(
+                    projectId = projectId,
+                    title = "Deploy to Production",
+                    description = "Deploy the application to production environment after final testing.",
+                    status = TaskStatus.COMPLETED,
+                    priority = "high",
+                    assignee = sampleUsers[1], // David Lee
+                    dueDate = "2024-01-15"
                 )
             )
         }

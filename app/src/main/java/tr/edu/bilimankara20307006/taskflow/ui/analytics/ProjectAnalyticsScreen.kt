@@ -45,6 +45,9 @@ fun ProjectAnalyticsScreen(
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
     
+    // Force recomposition when locale changes
+    val currentLocale = localizationManager.currentLocale
+    
     // Tema renklerini MaterialTheme'den al
     val darkBackground = MaterialTheme.colorScheme.background
     val cardBackground = MaterialTheme.colorScheme.surface
@@ -52,7 +55,7 @@ fun ProjectAnalyticsScreen(
     val selectedTabColor = Color(0xFF4CAF50)
     val unselectedTabColor = MaterialTheme.colorScheme.onSurfaceVariant
     
-    // Tab'lar
+    // Tab'lar - will update when currentLocale changes
     val tabs = listOf(
         localizationManager.localizedString("Overview"),
         localizationManager.localizedString("Progress"),

@@ -6,7 +6,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// iOS style light theme colors with green accent
+// iOS style light theme colors with green accent - Soft and eye-friendly
 private val LightColorScheme = lightColorScheme(
     primary = Color(0xFF4CAF50), // Green (matching login logo)
     onPrimary = Color.White,
@@ -14,13 +14,13 @@ private val LightColorScheme = lightColorScheme(
     onSecondary = Color.White,
     tertiary = Color(0xFF81C784), // Lighter green
     onTertiary = Color.White,
-    background = Color(0xFFF2F2F7), // iOS light background
-    onBackground = Color(0xFF000000), // Black text on light background
-    surface = Color(0xFFFFFFFF), // iOS card background (white)
-    onSurface = Color(0xFF000000), // Black text on white surface
-    surfaceVariant = Color(0xFFE5E5EA), // iOS search/input background (light gray)
-    onSurfaceVariant = Color(0xFF3C3C43), // Dark gray text on light gray
-    outline = Color(0xFFD1D1D6), // iOS separator color
+    background = Color(0xFFF8F8F8), // Softer light background
+    onBackground = Color(0xFF1C1C1E), // Softer black text
+    surface = Color(0xFFFAFAFA), // Soft white card background
+    onSurface = Color(0xFF1C1C1E), // Softer black text
+    surfaceVariant = Color(0xFFF0F0F0), // Very soft gray for inputs
+    onSurfaceVariant = Color(0xFF5C5C5E), // Medium gray text
+    outline = Color(0xFFE8E8E8), // Very soft separator
     error = Color(0xFFFF3B30), // iOS red
     onError = Color.White,
 )
