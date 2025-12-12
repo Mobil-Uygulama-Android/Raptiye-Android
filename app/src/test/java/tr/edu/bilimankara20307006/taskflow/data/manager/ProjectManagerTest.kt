@@ -5,6 +5,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -15,7 +17,7 @@ import org.junit.Test
 import org.junit.Assert.*
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
 import tr.edu.bilimankara20307006.taskflow.data.model.ProjectStatus
-import java.util.Date
+
 
 /**
  * ProjectManager için Unit Test sınıfı
@@ -24,7 +26,7 @@ import java.util.Date
  * Test edilen özellikler:
  * ✅ ProjectManager başlangıç değerleri
  * ✅ Project modeli oluşturma ve özellikleri
- * ✅ ProjectStatus enum testleri (TODO/IN_PROGRESS/COMPLETED)
+ * ✅ ProjectStatus enum testleri (ACTIVE/COMPLETED/ARCHIVED)
  * ✅ Task ilerleme hesaplaması (progressPercentage)
  * ✅ Loading ve error state yönetimi
  * ✅ Projects dizisi operasyonları
@@ -39,13 +41,27 @@ class ProjectManagerTest {
     private lateinit var mockDb: FirebaseFirestore
     private lateinit var projectManager: ProjectManager
 
+    private val testDispatcher = UnconfinedTestDispatcher()
+
     @Before
     fun setup() {
+        Dispatchers.setMain(testDispatcher)
+        
         // Mock Firebase services to prevent actual Firebase initialization
         mockAuth = mockk(relaxed = true)
         mockDb = mockk(relaxed = true)
         
+        // Setup basic mock behavior
+        every { mockAuth.currentUser } returns null
+        
+        // Create ProjectManager with mocked dependencies
         projectManager = ProjectManager(auth = mockAuth, db = mockDb)
+    }
+    
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+        unmockkAll()
     }
 
     // ✅ Test 1: ProjectManager başlangıç değerleri
@@ -69,7 +85,7 @@ class ProjectManagerTest {
             description = "Test Description",
             iconName = "folder",
             iconColor = "blue",
-            status = ProjectStatus.TODO,
+            status = ProjectStatus.ACTIVE,
             tasksCount = 10,
             completedTasksCount = 3
         )
@@ -79,7 +95,7 @@ class ProjectManagerTest {
         assertEquals("Project description should match", "Test Description", project.description)
         assertEquals("Project icon should match", "folder", project.iconName)
         assertEquals("Project color should match", "blue", project.iconColor)
-        assertEquals("Project status should be TODO", ProjectStatus.TODO, project.status)
+        assertEquals("Project status should be ACTIVE", ProjectStatus.ACTIVE, project.status)
         assertFalse("Project should not be completed initially", project.isCompleted)
     }
 
@@ -89,9 +105,9 @@ class ProjectManagerTest {
         val statuses = ProjectStatus.values()
         
         assertEquals("Should have 3 status types", 3, statuses.size)
-        assertTrue("Should contain TODO", statuses.contains(ProjectStatus.TODO))
-        assertTrue("Should contain IN_PROGRESS", statuses.contains(ProjectStatus.IN_PROGRESS))
+        assertTrue("Should contain ACTIVE", statuses.contains(ProjectStatus.ACTIVE))
         assertTrue("Should contain COMPLETED", statuses.contains(ProjectStatus.COMPLETED))
+        assertTrue("Should contain ARCHIVED", statuses.contains(ProjectStatus.ARCHIVED))
     }
 
     // ✅ Test 4: Task ilerleme yüzdesi hesaplaması
@@ -140,12 +156,11 @@ class ProjectManagerTest {
         val project = Project(
             title = "Test Project",
             description = "Test",
-            dueDate = Date()
+            dueDate = "2024-12-31"
         )
         
         assertNotNull("Due date should not be null", project.dueDate)
-        assertTrue("Formatted due date should contain 'Son teslim'", 
-            project.formattedDueDate.contains("Son teslim"))
+        assertEquals("Formatted due date should match", "2024-12-31", project.formattedDueDate)
     }
 
     // ✅ Test 6: Project with null due date
@@ -167,14 +182,14 @@ class ProjectManagerTest {
         val project = Project(
             title = "Test Project",
             description = "Test",
-            status = ProjectStatus.TODO
+            status = ProjectStatus.ACTIVE
         )
         
-        assertEquals("Initial status should be TODO", ProjectStatus.TODO, project.status)
+        assertEquals("Initial status should be ACTIVE", ProjectStatus.ACTIVE, project.status)
         
-        val updatedProject = project.copy(status = ProjectStatus.IN_PROGRESS)
-        assertEquals("Updated status should be IN_PROGRESS", 
-            ProjectStatus.IN_PROGRESS, updatedProject.status)
+        val updatedProject = project.copy(status = ProjectStatus.ARCHIVED)
+        assertEquals("Updated status should be ARCHIVED", 
+            ProjectStatus.ARCHIVED, updatedProject.status)
         
         val completedProject = updatedProject.copy(
             status = ProjectStatus.COMPLETED,

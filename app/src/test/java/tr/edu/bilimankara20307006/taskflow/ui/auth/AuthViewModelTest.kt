@@ -5,6 +5,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkAll
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.*
@@ -36,13 +38,24 @@ class AuthViewModelTest {
     private lateinit var mockAuth: FirebaseAuth
     private lateinit var viewModel: AuthViewModel
 
+    private val testDispatcher = UnconfinedTestDispatcher()
+
     @Before
     fun setup() {
+        Dispatchers.setMain(testDispatcher)
+        
         // Mock FirebaseAuth to prevent actual Firebase initialization
         mockAuth = mockk(relaxed = true)
         every { mockAuth.currentUser } returns null
         
+        // Create AuthViewModel with mocked dependency
         viewModel = AuthViewModel(auth = mockAuth)
+    }
+    
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+        unmockkAll()
     }
 
     // ✅ Test 1: ViewModel başlangıç değerleri
