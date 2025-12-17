@@ -16,6 +16,7 @@ enum class ProjectStatus {
 
 /**
  * Proje Data Modeli - iOS Project.swift ile aynı yapı
+ * Rol bazlı yetkilendirme sistemi ile
  */
 data class Project(
     val id: String = UUID.randomUUID().toString(),
@@ -27,6 +28,7 @@ data class Project(
     val teamMemberIds: List<String> = emptyList(),
     val teamLeader: User? = null,
     val teamMembers: List<User> = emptyList(),
+    val members: List<ProjectMember> = emptyList(), // Yeni: Rol bazlı üyeler
     val status: ProjectStatus = ProjectStatus.ACTIVE,
     val dueDate: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
@@ -42,6 +44,7 @@ data class Project(
      */
     val formattedDueDate: String
         get() = dueDate ?: ""
+    
     /**
      * Proje ilerleme yüzdesi
      */
@@ -51,6 +54,37 @@ data class Project(
         } else {
             0.0
         }
+    
+    /**
+     * Kullanıcının bu projedeki rolünü al
+     */
+    fun getUserRole(userId: String): ProjectRole {
+        return when {
+            ownerId == userId -> ProjectRole.OWNER
+            else -> members.find { it.user.uid == userId }?.role ?: ProjectRole.MEMBER
+        }
+    }
+    
+    /**
+     * Kullanıcının üye ekleme/çıkarma yetkisi var mı?
+     */
+    fun canUserManageMembers(userId: String): Boolean {
+        return getUserRole(userId).canManageMembers()
+    }
+    
+    /**
+     * Kullanıcının proje ayarlarını değiştirme yetkisi var mı?
+     */
+    fun canUserEditSettings(userId: String): Boolean {
+        return getUserRole(userId).canEditProjectSettings()
+    }
+    
+    /**
+     * Kullanıcının görev yönetimi yetkisi var mı?
+     */
+    fun canUserManageTasks(userId: String): Boolean {
+        return getUserRole(userId).canManageTasks()
+    }
     
     companion object {
         /**

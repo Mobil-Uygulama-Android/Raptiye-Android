@@ -235,7 +235,7 @@ fun HelpSupportScreen(
                         icon = Icons.Default.Email,
                         title = if (localizationManager.currentLocale == "tr") 
                             "E-posta Desteği" else "Email Support",
-                        color = Color(0xFF2196F3),
+                        color = Color(0xFF66D68C),
                         onClick = {
                             val intent = Intent(Intent.ACTION_SENDTO).apply {
                                 data = Uri.parse("mailto:support@raptiye.app")

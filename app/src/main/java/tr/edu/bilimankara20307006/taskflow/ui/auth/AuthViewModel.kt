@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import tr.edu.bilimankara20307006.taskflow.data.model.User
+import tr.edu.bilimankara20307006.taskflow.data.manager.NotificationManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
@@ -102,6 +103,11 @@ class AuthViewModel(
                 val firebaseUser = authResult.user
                 
                 if (firebaseUser != null) {
+                    println("🔑 Android Login Başarılı:")
+                    println("   User ID (UID): ${firebaseUser.uid}")
+                    println("   Email: ${firebaseUser.email}")
+                    println("   Display Name: ${firebaseUser.displayName}")
+                    
                     val user = User(
                         uid = firebaseUser.uid,
                         email = firebaseUser.email ?: "",
@@ -145,6 +151,9 @@ class AuthViewModel(
                         user = user,
                         errorMessage = null
                     )
+                    
+                    // FCM Token'ı güncelle
+                    updateFCMTokenAfterAuth()
                     
                     println("✅ Giriş başarılı: ${user.displayName}")
                     println("✅ User ID: ${user.uid}")
@@ -268,6 +277,9 @@ class AuthViewModel(
                         errorMessage = null
                     )
                     
+                    // FCM Token'ı güncelle
+                    updateFCMTokenAfterAuth()
+                    
                     println("✅ Kayıt başarılı: $finalUsername")
                     println("✅ User ID: ${user.uid}")
                 } else {
@@ -375,5 +387,21 @@ class AuthViewModel(
      */
     fun clearError() {
         _authState.value = _authState.value.copy(errorMessage = null)
-    }
-}
+    }    
+    /**
+     * Kullanıcı oturum açtıktan sonra FCM token'ı güncelle
+     */
+    private fun updateFCMTokenAfterAuth() {
+        viewModelScope.launch {
+            try {
+                val result = NotificationManager.getInstance().updateFCMToken()
+                if (result.isSuccess) {
+                    println("🔑 FCM Token başarıyla güncellendi")
+                } else {
+                    println("⚠️ FCM Token güncelleme hatası: ${result.exceptionOrNull()?.message}")
+                }
+            } catch (e: Exception) {
+                println("❌ FCM Token güncelleme hatası: ${e.message}")
+            }
+        }
+    }}

@@ -1,6 +1,9 @@
 package tr.edu.bilimankara20307006.taskflow.ui.project
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -63,6 +66,18 @@ fun ProjectListScreen(
     
     // İlk yükleme kontrolü - sadece ilk açılışta animasyon olsun
     var isInitialLoad by remember { mutableStateOf(true) }
+    
+    // Loading overlay state - 300ms delay ile yumuşak geçiş
+    var showLoadingOverlay by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(state.isLoading) {
+        if (state.isLoading) {
+            delay(300) // 300ms bekle, hızlı yüklemelerde loading gösterme
+            showLoadingOverlay = true
+        } else {
+            showLoadingOverlay = false
+        }
+    }
     
     // Animation states
     var headerVisible by remember { mutableStateOf(false) }
@@ -164,7 +179,13 @@ fun ProjectListScreen(
         if (pullToRefreshState.isRefreshing) {
             println("🔄 Pull to refresh tetiklendi, projeler yenileniyor...")
             viewModel.refreshProjects()
-            delay(1000) // Animasyon için kısa bekleme
+        }
+    }
+    
+    // Pull to refresh'i refreshing durumu ile senkronize et
+    LaunchedEffect(state.isRefreshing) {
+        if (!state.isRefreshing && pullToRefreshState.isRefreshing) {
+            delay(300) // Kısa bir animasyon için bekleme
             pullToRefreshState.endRefresh()
         }
     }
@@ -268,20 +289,24 @@ fun ProjectListScreen(
         modifier = modifier
             .fillMaxSize()
             .background(darkBackground)
-            .nestedScroll(pullToRefreshState.nestedScrollConnection)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
+        // Tüm içeriği tek bir LazyColumn içinde göster
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(pullToRefreshState.nestedScrollConnection),
+            contentPadding = PaddingValues(bottom = 90.dp)
         ) {
             // Header with title and buttons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                    .alpha(headerAlpha),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .alpha(headerAlpha),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                 Text(
                     text = localizationManager.localizedString("Projects"),
                     fontSize = 34.sp,
@@ -386,7 +411,7 @@ fun ProjectListScreen(
                         modifier = Modifier
                             .size(48.dp)
                             .scale(addButtonScale)
-                            .background(Color(0xFF4CAF50), CircleShape)
+                            .background(Color(0xFF007AFF), CircleShape)
                             .pointerInput(Unit) {
                                 detectTapGestures(
                                     onPress = {
@@ -412,10 +437,12 @@ fun ProjectListScreen(
                         )
                     }
                 }
+                }
             }
             
             // Search bar
-            OutlinedTextField(
+            item {
+                OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
                 modifier = Modifier
@@ -449,9 +476,11 @@ fun ProjectListScreen(
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
+            }
             
             // Sort and Filter buttons
-            Row(
+            item {
+                Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 16.dp)
@@ -562,9 +591,11 @@ fun ProjectListScreen(
                     }
                 }
             }
+            }
             
             // Projects section header
-            Text(
+            item {
+                Text(
                 text = localizationManager.localizedString("MyProjects"),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
@@ -573,10 +604,12 @@ fun ProjectListScreen(
                     .padding(horizontal = 20.dp, vertical = 8.dp)
                     .alpha(titleAlpha)
             )
+            }
             
             // Loading indicator
             if (state.isLoading && projects.isEmpty()) {
-                Box(
+                item {
+                    Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(32.dp),
@@ -586,15 +619,15 @@ fun ProjectListScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+                }
             } else if (filteredProjects.isEmpty() && !state.isLoading) {
-                // iOS-style Empty State - Scrollable
-                val scrollState = rememberScrollState()
+                // iOS-style Empty State
+                item {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState)
+                        .fillMaxWidth()
                         .padding(32.dp)
-                        .padding(bottom = 100.dp), // Extra space for bottom nav
+                        .padding(top = 50.dp, bottom = 100.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -679,18 +712,13 @@ fun ProjectListScreen(
                         )
                     }
                 }
+                }
             }
             
             // Projects list
             if (filteredProjects.isNotEmpty()) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 90.dp) // Space for bottom nav
-                ) {
-                    itemsIndexed(filteredProjects) { index, project ->
+                itemsIndexed(filteredProjects) { index, project ->
+                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
                         AnimatedProjectCard(
                             project = project,
                             index = index,
@@ -741,11 +769,45 @@ fun ProjectListScreen(
                 .padding(bottom = 100.dp)
         )
         
-        // Pull to refresh indicator
-        PullToRefreshContainer(
-            state = pullToRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
+        // Pull to refresh indicator - sadece yenileme sırasında görünsün
+        if (pullToRefreshState.isRefreshing) {
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
+        
+        // Loading overlay - dark mode uyumlu, 300ms delay ile
+        AnimatedVisibility(
+            visible = showLoadingOverlay,
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(300)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.7f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
+                        color = Color(0xFF66D68C),
+                        strokeWidth = 4.dp
+                    )
+                    Text(
+                        text = localizationManager.localizedString("Loading"),
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -836,39 +898,48 @@ fun ProjectCardView(
                     overflow = TextOverflow.Ellipsis
                 )
                 
-                // Progress bar (if has tasks)
+                // Progress bar ve görev bilgisi
                 if (project.tasksCount > 0) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        // Progress bar
+                        // Progress bar - yeşil #66D68C
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(Color(0xFF2E2E2E))
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .fillMaxWidth(project.progressPercentage.toFloat())
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(Color(0xFF4CAF50))
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color(0xFF66D68C))
                             )
                         }
                         
+                        // "X / Y görev tamamlandı" bilgisi
                         Text(
-                            text = "${project.completedTasksCount}/${project.tasksCount}",
+                            text = "${project.completedTasksCount} / ${project.tasksCount} görev tamamlandı",
                             fontSize = 12.sp,
-                            color = textSecondaryColor,
-                            modifier = Modifier.widthIn(min = 30.dp)
+                            color = Color(0xFF66D68C),
+                            fontWeight = FontWeight.Medium
                         )
                     }
+                } else {
+                    // Görev yoksa bilgi göster
+                    Text(
+                        text = "Henüz görev eklenmedi",
+                        fontSize = 12.sp,
+                        color = textSecondaryColor.copy(alpha = 0.6f),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
             

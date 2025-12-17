@@ -21,6 +21,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.data.model.Project
 import tr.edu.bilimankara20307006.taskflow.data.model.User
+import tr.edu.bilimankara20307006.taskflow.data.model.ProjectRole
+import tr.edu.bilimankara20307006.taskflow.data.firebase.FirebaseManager
 import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 
 /**
@@ -58,6 +60,149 @@ fun AddTeamMemberScreen(
     }
     
     val currentProject = project!!
+    val currentUserId = FirebaseManager.getCurrentUserId() ?: ""
+    val userRole = currentProject.getUserRole(currentUserId)
+    val canManageMembers = currentProject.canUserManageMembers(currentUserId)
+    
+    // Yetkisi yoksa sadece okuma modunda göster
+    if (!canManageMembers) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(localizationManager.localizedString("TeamMembers")) },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Default.ArrowBack, localizationManager.localizedString("Back"))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color(0xFF1E1E1E)
+                    )
+                )
+            },
+            containerColor = Color(0xFF121212)
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Bilgilendirme
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF1E1E1E)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            modifier = Modifier.size(40.dp),
+                            tint = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Üye ekleme/çıkarma yetkiniz yok",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Rolünüz: ${userRole.displayName}",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Current Team Section (Sadece görüntüleme)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF1E1E1E)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = localizationManager.localizedString("CurrentTeam") + " (${currentProject.teamMembers.size})",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        currentProject.teamMembers.forEach { member ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(
+                                            if (member.uid == currentProject.ownerId) 
+                                                Color(0xFFFF9500).copy(alpha = 0.2f)
+                                            else 
+                                                Color(0xFF66D68C).copy(alpha = 0.2f),
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = member.initials,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (member.uid == currentProject.ownerId) 
+                                            Color(0xFFFF9500)
+                                        else 
+                                            Color(0xFF66D68C)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.width(12.dp))
+                                
+                                Column {
+                                    Text(
+                                        text = member.displayName ?: localizationManager.localizedString("User"),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White
+                                    )
+                                    
+                                    Text(
+                                        text = currentProject.getUserRole(member.uid).displayName,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFFF9500)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
     
     var searchEmail by remember { mutableStateOf("") }
     var isSearching by remember { mutableStateOf(false) }
@@ -335,7 +480,7 @@ fun AddTeamMemberScreen(
                             ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.PersonAdd, null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Send, null, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(localizationManager.localizedString("AddToProject"))
                         }
@@ -388,7 +533,7 @@ fun AddTeamMemberScreen(
                                             if (member.uid == currentProject.ownerId) 
                                                 Color(0xFFFF9500).copy(alpha = 0.2f)
                                             else 
-                                                Color(0xFF007AFF).copy(alpha = 0.2f),
+                                                Color(0xFF66D68C).copy(alpha = 0.2f),
                                             CircleShape
                                         ),
                                     contentAlignment = Alignment.Center
@@ -400,7 +545,7 @@ fun AddTeamMemberScreen(
                                         color = if (member.uid == currentProject.ownerId) 
                                             Color(0xFFFF9500)
                                         else 
-                                            Color(0xFF007AFF)
+                                            Color(0xFF66D68C)
                                     )
                                 }
                                 

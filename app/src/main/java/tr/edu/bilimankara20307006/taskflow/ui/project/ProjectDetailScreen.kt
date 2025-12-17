@@ -33,6 +33,7 @@ import tr.edu.bilimankara20307006.taskflow.data.model.Task
 import tr.edu.bilimankara20307006.taskflow.data.model.User
 import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -56,6 +57,7 @@ fun ProjectDetailScreen(
     var showAnalytics by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showLeaveDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showNotificationDialog by remember { mutableStateOf(false) }
@@ -64,6 +66,10 @@ fun ProjectDetailScreen(
     val repository = remember { tr.edu.bilimankara20307006.taskflow.data.repository.ProjectRepository.getInstance() }
     val coroutineScope = rememberCoroutineScope()
     val viewModel: ProjectListViewModel = viewModel()
+    
+    // Current user ve proje sahipliği kontrolü
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val isProjectOwner = currentUser?.uid == project?.ownerId
     
     // Refresh fonksiyonu
     val refreshData = suspend {
@@ -307,32 +313,60 @@ fun ProjectDetailScreen(
                             
                             HorizontalDivider()
                             
-                            // Projeyi Sil
-                            DropdownMenuItem(
-                                text = {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Delete,
-                                            contentDescription = null,
-                                            tint = Color(0xFFFF3B30),
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Text(
-                                            localizationManager.localizedString("DeleteProject"),
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = Color(0xFFFF3B30)
-                                        )
+                            // Proje sahibiyse "Projeyi Sil", değilse "Projeden Ayrıl"
+                            if (isProjectOwner) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Delete,
+                                                contentDescription = null,
+                                                tint = Color(0xFFFF3B30),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            Text(
+                                                localizationManager.localizedString("DeleteProject"),
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFFFF3B30)
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteDialog = true
                                     }
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    showDeleteDialog = true
-                                }
-                            )
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.ExitToApp,
+                                                contentDescription = null,
+                                                tint = Color(0xFFFF9500),
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                            Text(
+                                                if (localizationManager.currentLocale == "tr") "Projeden Ayrıl" else "Leave Project",
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFFFF9500)
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showLeaveDialog = true
+                                    }
+                                )
+                            }
                         }
                     }
                 },
@@ -434,7 +468,7 @@ fun ProjectDetailScreen(
                                 .fillMaxWidth()
                                 .height(8.dp)
                                 .clip(RoundedCornerShape(4.dp)),
-                            color = Color(0xFF4CAF50),
+                            color = Color(0xFF66D68C),
                             trackColor = MaterialTheme.colorScheme.surfaceVariant,
                         )
                     }
@@ -647,6 +681,75 @@ fun ProjectDetailScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(20.dp)
             )
+        }
+        
+        // Projeden Ayrıl Dialogu
+        if (showLeaveDialog) {
+            val currentProject = project
+            if (currentProject != null && currentUser != null) {
+                AlertDialog(
+                    onDismissRequest = { showLeaveDialog = false },
+                    icon = {
+                        Icon(
+                            Icons.Default.ExitToApp,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9500),
+                            modifier = Modifier.size(40.dp)
+                        )
+                    },
+                    title = {
+                        Text(
+                            text = if (localizationManager.currentLocale == "tr") 
+                                "Projeden Ayrıl?" else "Leave Project?",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFF9500)
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = if (localizationManager.currentLocale == "tr")
+                                "\"${currentProject.title}\" projesinden ayrılmak istediğinize emin misiniz? Bu projeye tekrar erişmek için yeniden davet edilmeniz gerekecek."
+                            else "Are you sure you want to leave \"${currentProject.title}\"? You'll need to be invited again to access this project.",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showLeaveDialog = false
+                                println("🚪 Projeden ayrılma işlemi başlatılıyor: ${currentProject.id}")
+                                // ViewModel üzerinden ayrıl - hem Firebase'den hem de local listeden kaldırır
+                                viewModel.leaveProject(currentProject.id, currentUser.uid)
+                                // UI'dan hemen geri dön (state otomatik güncellenecek)
+                                println("⬅️ Geri dönülüyor...")
+                                onBackClick()
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = Color(0xFFFF9500)
+                            )
+                        ) {
+                            Text(
+                                if (localizationManager.currentLocale == "tr") "Ayrıl" else "Leave",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { showLeaveDialog = false }
+                        ) {
+                            Text(
+                                if (localizationManager.currentLocale == "tr") "İptal" else "Cancel",
+                                fontSize = 16.sp
+                            )
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(20.dp)
+                )
+            }
         }
         
         // Düzenleme Dialogu - Tüm alanlar düzenlenebilir
@@ -925,7 +1028,7 @@ fun ProjectDetailScreen(
                     Icon(
                         Icons.Default.Share,
                         contentDescription = null,
-                        tint = Color(0xFF2196F3),
+                        tint = Color(0xFF66D68C),
                         modifier = Modifier.size(40.dp)
                     )
                 },
@@ -968,7 +1071,7 @@ fun ProjectDetailScreen(
                             android.widget.Toast.makeText(context, "Proje ID kopyalandı", android.widget.Toast.LENGTH_SHORT).show()
                         },
                         colors = ButtonDefaults.textButtonColors(
-                            contentColor = Color(0xFF2196F3)
+                            contentColor = Color(0xFF66D68C)
                         )
                     ) {
                         Text(
@@ -1046,7 +1149,7 @@ fun ProjectDetailScreen(
                                 onCheckedChange = { notificationsEnabled = it },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = Color.White,
-                                    checkedTrackColor = Color(0xFF4CAF50)
+                                    checkedTrackColor = Color(0xFF66D68C)
                                 )
                             )
                         }

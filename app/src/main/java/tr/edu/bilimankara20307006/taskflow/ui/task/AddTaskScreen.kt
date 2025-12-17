@@ -47,6 +47,7 @@ import java.util.*
 @Composable
 fun AddTaskScreen(
     projectId: String,
+    projectName: String,
     availableAssignees: List<User>,
     onBackClick: () -> Unit,
     onTaskCreated: (Task) -> Unit,
@@ -66,6 +67,7 @@ fun AddTaskScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showAlert by remember { mutableStateOf(false) }
     var alertMessage by remember { mutableStateOf("") }
+    var showAddMemberScreen by remember { mutableStateOf(false) }
     
     // Animation states
     var screenVisible by remember { mutableStateOf(false) }
@@ -87,7 +89,7 @@ fun AddTaskScreen(
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
     val inputBackground = Color(0xFF262C35) // iOS input background
-    val blueColor = Color(0xFF007AFF) // iOS blue
+    val greenColor = Color(0xFF66D68C) // Green accent color
     
     // Date formatter
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
@@ -140,7 +142,7 @@ fun AddTaskScreen(
                             text = localizationManager.localizedString("Save"),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (taskTitle.isNotBlank()) blueColor else textSecondaryColor
+                            color = if (taskTitle.isNotBlank()) greenColor else textSecondaryColor
                         )
                     }
                 },
@@ -192,8 +194,8 @@ fun AddTaskScreen(
                                 unfocusedContainerColor = inputBackground,
                                 focusedContainerColor = inputBackground,
                                 unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = blueColor,
-                                cursorColor = blueColor
+                                focusedBorderColor = greenColor,
+                                cursorColor = greenColor
                             ),
                             shape = RoundedCornerShape(12.dp),
                             singleLine = true
@@ -233,8 +235,8 @@ fun AddTaskScreen(
                                 unfocusedContainerColor = inputBackground,
                                 focusedContainerColor = inputBackground,
                                 unfocusedBorderColor = Color.Transparent,
-                                focusedBorderColor = blueColor,
-                                cursorColor = blueColor
+                                focusedBorderColor = greenColor,
+                                cursorColor = greenColor
                             ),
                             shape = RoundedCornerShape(12.dp),
                             maxLines = 5
@@ -259,13 +261,22 @@ fun AddTaskScreen(
                                 color = textSecondaryColor
                             )
                             
-                            // Üye yok uyarısı
-                            if (availableAssignees.isEmpty()) {
+                            // Add Member button
+                            TextButton(
+                                onClick = { showAddMemberScreen = true }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PersonAdd,
+                                    contentDescription = null,
+                                    tint = greenColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = localizationManager.localizedString("NoMembers"),
-                                    fontSize = 12.sp,
-                                    color = Color(0xFFFF9500),
-                                    fontWeight = FontWeight.Medium
+                                    text = "Üye Ekle",
+                                    fontSize = 14.sp,
+                                    color = greenColor,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -328,14 +339,14 @@ fun AddTaskScreen(
                                         modifier = Modifier
                                             .size(40.dp)
                                             .clip(CircleShape)
-                                            .background(blueColor.copy(alpha = 0.3f)),
+                                            .background(greenColor.copy(alpha = 0.3f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = selectedAssignee!!.initials,
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = blueColor
+                                            color = greenColor
                                         )
                                     }
                                     
@@ -392,14 +403,14 @@ fun AddTaskScreen(
                                         modifier = Modifier
                                             .size(40.dp)
                                             .clip(CircleShape)
-                                            .background(blueColor.copy(alpha = 0.3f)),
+                                            .background(greenColor.copy(alpha = 0.3f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = user.initials,
                                             fontSize = 16.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = blueColor
+                                            color = greenColor
                                         )
                                     }
                                     
@@ -423,7 +434,7 @@ fun AddTaskScreen(
                                     Icon(
                                         imageVector = Icons.Default.AddCircle,
                                         contentDescription = "Select",
-                                        tint = blueColor
+                                        tint = greenColor
                                     )
                                 }
                             }
@@ -463,12 +474,12 @@ fun AddTaskScreen(
                                     shape = RoundedCornerShape(10.dp),
                                     colors = CardDefaults.cardColors(
                                         containerColor = if (isSelected) 
-                                            blueColor.copy(alpha = 0.2f) 
+                                            greenColor.copy(alpha = 0.2f) 
                                         else 
                                             inputBackground
                                     ),
                                     border = if (isSelected) 
-                                        androidx.compose.foundation.BorderStroke(1.dp, blueColor) 
+                                        androidx.compose.foundation.BorderStroke(1.dp, greenColor) 
                                     else null
                                 ) {
                                     Row(
@@ -484,7 +495,7 @@ fun AddTaskScreen(
                                             else 
                                                 Icons.Default.Circle,
                                             contentDescription = null,
-                                            tint = if (isSelected) blueColor else textSecondaryColor,
+                                            tint = if (isSelected) greenColor else textSecondaryColor,
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Text(
@@ -535,7 +546,7 @@ fun AddTaskScreen(
                                     Icon(
                                         imageVector = Icons.Default.CalendarToday,
                                         contentDescription = null,
-                                        tint = blueColor
+                                        tint = greenColor
                                     )
                                     Text(
                                         text = dueDate?.let { dateFormatter.format(it) }
@@ -594,7 +605,7 @@ fun AddTaskScreen(
                 ) {
                     Text(
                         text = localizationManager.localizedString("OK"),
-                        color = blueColor
+                        color = greenColor
                     )
                 }
             },
@@ -635,11 +646,25 @@ fun AddTaskScreen(
                 ) {
                     Text(
                         text = localizationManager.localizedString("OK"),
-                        color = blueColor
+                        color = greenColor
                     )
                 }
             },
             containerColor = cardBackground
+        )
+    }
+    
+    // Add Member Screen Modal
+    if (showAddMemberScreen) {
+        AddTaskMemberScreen(
+            projectId = projectId,
+            projectName = projectName,
+            existingMembers = availableAssignees,
+            onMemberSelected = { user ->
+                selectedAssignee = user
+                showAddMemberScreen = false
+            },
+            onDismiss = { showAddMemberScreen = false }
         )
     }
 }

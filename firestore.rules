@@ -2,65 +2,162 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Users collection - Kullanıcılar kendi verilerini okuyup yazabilir
+    // Yardımcı fonksiyonlar
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole(projectId) {
+      let project = get(/databases/$(database)/documents/projects/$(projectId));
+      
+      // Önce ownerId kontrolü yap (basit yol)
+      if (project.data.ownerId == request.auth.uid) {
+        return 'OWNER';
+      }
+      
+      // Sonra members array'ini kontrol et (yeni projeler için)
+      let members = project.data.get('members', []);
+      let userMember = members.filter(m => m.user.uid == request.auth.uid)[0];
+      if (userMember != null) {
+        return userMember.role;
+      }
+      
+      // Son olarak teamMemberIds kontrolü (eski projeler için)
+      let teamMemberIds = project.data.get('teamMemberIds', []);
+      if (teamMemberIds.hasAll([request.auth.uid])) {
+        return 'MEMBER';
+      }
+      
+      return null;
+    }
+    
+    function getRoleLevel(role) {
+      return role == 'OWNER' ? 3 : (role == 'LEADER' ? 2 : (role == 'MEMBER' ? 1 : 0));
+    }
+    
+    function hasMinRole(projectId, minRole) {
+      let userRole = getUserRole(projectId);
+      return getRoleLevel(userRole) >= getRoleLevel(minRole);
+    }
+    
+    function isOwner(projectId) {
+      return getUserRole(projectId) == 'OWNER';
+    }
+    
+    function isLeaderOrOwner(projectId) {
+      let role = getUserRole(projectId);
+      return role == 'OWNER' || role == 'LEADER';
+    }
+    
+    function isMember(projectId) {
+      return getUserRole(projectId) != null;
+    }
+    
+    // Users collection
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Notification Settings subcollection
+      match /notificationSettings/{settingId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
     }
     
-    // Projects collection - Projeler
+    // Projects collection
     match /projects/{projectId} {
-      // Okuma: Giriş yapmış kullanıcılar okuyabilir
-      allow read: if request.auth != null;
+      // Okuma: Sadece proje üyeleri
+      allow read: if isAuthenticated() && isMember(projectId);
       
-      // Oluşturma: Giriş yapmış kullanıcı kendi user ID'si ile proje oluşturabilir
-      allow create: if request.auth != null && 
-                       (request.resource.data.userId == request.auth.uid || 
-                        request.resource.data.ownerId == request.auth.uid);
+      // Oluşturma: Herkes kendi projesini oluşturabilir
+      allow create: if isAuthenticated() && 
+                       request.resource.data.ownerId == request.auth.uid;
       
-      // Güncelleme: Sadece proje sahibi güncelleyebilir
-      allow update: if request.auth != null && 
-                       (resource.data.userId == request.auth.uid || 
-                        resource.data.ownerId == request.auth.uid);
+      // Güncelleme: OWNER tam yetki, LEADER içerik düzenleyebilir, üyeler projeden ayrılabilir
+      allow update: if isAuthenticated() && (
+        // OWNER her şeyi değiştirebilir
+        isOwner(projectId) ||
+        // LEADER sadece belirli alanları değiştirebilir (ownerId ve members hariç)
+        (isLeaderOrOwner(projectId) && 
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId'])) ||
+        // Proje üyesi (kendini çıkarma veya diğer güvenli alanlar)
+        isMember(projectId)
+      );
       
-      // Silme: Sadece proje sahibi silebilir
-      allow delete: if request.auth != null && 
-                       (resource.data.userId == request.auth.uid || 
-                        resource.data.ownerId == request.auth.uid);
+      // Silme: OWNER ya da projenin ownerId'si current user ise
+      allow delete: if isAuthenticated() && (
+        isOwner(projectId) || 
+        resource.data.ownerId == request.auth.uid
+      );
     }
     
-    // Tasks collection - Görevler
+    // Tasks collection
     match /tasks/{taskId} {
-      // Okuma: Giriş yapmış kullanıcılar okuyabilir
-      allow read: if request.auth != null;
+      // Okuma: Proje üyeleri
+      allow read: if isAuthenticated() && 
+                     exists(/databases/$(database)/documents/projects/$(resource.data.projectId)) &&
+                     isMember(resource.data.projectId);
       
-      // Oluşturma: Giriş yapmış kullanıcı görev oluşturabilir
-      allow create: if request.auth != null;
+      // Oluşturma: LEADER ve OWNER
+      allow create: if isAuthenticated() && 
+                       exists(/databases/$(database)/documents/projects/$(request.resource.data.projectId)) &&
+                       isLeaderOrOwner(request.resource.data.projectId);
       
-      // Güncelleme: Görev sahibi veya atanan kişi güncelleyebilir
-      allow update: if request.auth != null;
+      // Güncelleme: LEADER ve OWNER, MEMBER sadece kendi görevini güncelleyebilir
+      allow update: if isAuthenticated() && (
+        isLeaderOrOwner(resource.data.projectId) ||
+        (isMember(resource.data.projectId) && resource.data.assignedTo == request.auth.uid)
+      );
       
-      // Silme: Görev sahibi silebilir veya projenin sahibi silebilir
-      allow delete: if request.auth != null;
+      // Silme: Sadece LEADER ve OWNER
+      allow delete: if isAuthenticated() && isLeaderOrOwner(resource.data.projectId);
     }
     
-    // Notifications collection - Bildirimler
+    // Notifications collection
     match /notifications/{notificationId} {
-      allow read: if request.auth != null && 
-                     resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && 
-                       resource.data.userId == request.auth.uid;
-      allow delete: if request.auth != null && 
-                       resource.data.userId == request.auth.uid;
+      // Okuma: Sadece bildirim sahibi
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Oluşturma: Herkes bildirim oluşturabilir (system veya diğer kullanıcılar)
+      allow create: if isAuthenticated();
+      
+      // Güncelleme: Sadece bildirim sahibi (okundu işaretleme için)
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Silme: Sadece bildirim sahibi
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     
-    // Analytics collection - Analitikler
+    // Comments collection
+    match /comments/{commentId} {
+      // Okuma: Görevin projesinde üye olanlar okuyabilir
+      allow read: if isAuthenticated() && 
+                     exists(/databases/$(database)/documents/tasks/$(resource.data.taskId)) &&
+                     isMember(get(/databases/$(database)/documents/tasks/$(resource.data.taskId)).data.projectId);
+      
+      // Oluşturma: Görevin projesinde üye olanlar yorum yapabilir
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid &&
+                       exists(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)) &&
+                       isMember(get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.projectId);
+      
+      // Güncelleme: Sadece kendi yorumunu güncelleyebilir
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Silme: Sadece kendi yorumunu silebilir veya proje OWNER'ı silebilir
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isOwner(get(/databases/$(database)/documents/tasks/$(resource.data.taskId)).data.projectId)
+      );
+    }
+    
+    // Analytics collection - Sadece kendi analitiğini görebilir
     match /analytics/{analyticsId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if isAuthenticated() && request.auth.uid == analyticsId;
     }
     
-    // Diğer tüm koleksiyonlar için varsayılan: Erişim yok
+    // Varsayılan: Tüm diğer koleksiyonlar kapalı
     match /{document=**} {
       allow read, write: if false;
     }

@@ -31,6 +31,22 @@ class ProjectListViewModel : ViewModel() {
     init {
         // ViewModel oluşturulduğunda real-time dinleyici başlat
         startRealtimeListener()
+        
+        // Mevcut projelerin istatistiklerini güncelle (sadece bir kez)
+        viewModelScope.launch {
+            try {
+                println("🔄 Proje istatistikleri migration başlatılıyor...")
+                projectRepository.updateAllProjectStats()
+                    .onSuccess {
+                        println("✅ Migration tamamlandı")
+                    }
+                    .onFailure { error ->
+                        println("⚠️ Migration hatası (göz ardı edildi): ${error.message}")
+                    }
+            } catch (e: Exception) {
+                println("⚠️ Migration exception (göz ardı edildi): ${e.message}")
+            }
+        }
     }
     
     /**
@@ -204,6 +220,38 @@ class ProjectListViewModel : ViewModel() {
                     _state.value = _state.value.copy(
                         projects = _state.value.projects,
                         errorMessage = error.message ?: "Proje silinemedi"
+                    )
+                    // Listeyi yeniden yükle
+                    loadProjects()
+                }
+        }
+    }
+    
+    /**
+     * Projeden ayrıl - kullanıcı kendini projeden çıkarır
+     */
+    fun leaveProject(projectId: String, userId: String) {
+        viewModelScope.launch {
+            println("🚪 ViewModel: Projeden ayrılma başladı - $projectId")
+            
+            // Önce local listeden kaldır (UI anında güncellensin)
+            val updatedProjects = _state.value.projects.filter { it.id != projectId }
+            _state.value = _state.value.copy(
+                projects = updatedProjects,
+                errorMessage = null
+            )
+            println("✅ ViewModel: Local listeden kaldırıldı, kalan proje sayısı: ${updatedProjects.size}")
+            
+            // Sonra Firebase'den çıkar
+            projectRepository.removeTeamMember(userId, projectId)
+                .onSuccess {
+                    println("✅ ViewModel: Projeden ayrılma başarılı")
+                }
+                .onFailure { error ->
+                    println("❌ ViewModel: Projeden ayrılma hatası: ${error.message}")
+                    // Hata durumunda projeyi geri ekle
+                    _state.value = _state.value.copy(
+                        errorMessage = error.message ?: "Projeden ayrılınamadı"
                     )
                     // Listeyi yeniden yükle
                     loadProjects()

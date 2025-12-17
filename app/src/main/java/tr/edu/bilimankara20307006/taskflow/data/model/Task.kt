@@ -26,7 +26,7 @@ data class Task(
     val priority: String = "medium",
     val assigneeId: String = "",
     val creatorId: String = "",
-    val dueDate: String? = null,
+    val dueDate: String? = null, // Görevin kendi bitiş tarihi (proje tarihinden bağımsız)
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     // Eski alanlar (geriye dönük uyumluluk için)
@@ -39,7 +39,17 @@ data class Task(
      * Son teslim tarihi formatlanmış
      */
     val formattedDueDate: String
-        get() = dueDate ?: ""
+        get() {
+            if (dueDate.isNullOrEmpty()) return "Tarih belirlenmedi"
+            return try {
+                val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                val outputFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                val date = inputFormat.parse(dueDate)
+                date?.let { outputFormat.format(it) } ?: dueDate
+            } catch (e: Exception) {
+                dueDate
+            }
+        }
     
     companion object {
         /**

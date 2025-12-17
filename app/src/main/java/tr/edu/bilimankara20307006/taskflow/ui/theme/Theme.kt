@@ -8,11 +8,11 @@ import androidx.compose.ui.graphics.Color
 
 // iOS style light theme colors with green accent - Soft and eye-friendly
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF4CAF50), // Green (matching login logo)
+    primary = Color(0xFF66D68C), // Green #66D68C - RGB(0.40, 0.84, 0.55)
     onPrimary = Color.White,
-    secondary = Color(0xFF66BB6A), // Light green
+    secondary = Color(0xFF66D68C), // Green accent
     onSecondary = Color.White,
-    tertiary = Color(0xFF81C784), // Lighter green
+    tertiary = Color(0xFF81D69A), // Lighter green
     onTertiary = Color.White,
     background = Color(0xFFF8F8F8), // Softer light background
     onBackground = Color(0xFF1C1C1E), // Softer black text
@@ -27,11 +27,11 @@ private val LightColorScheme = lightColorScheme(
 
 // iOS style dark theme colors with green accent (for main app)
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF4CAF50), // Green (matching login logo)
+    primary = Color(0xFF66D68C), // Green #66D68C - RGB(0.40, 0.84, 0.55)
     onPrimary = Color.White,
-    secondary = Color(0xFF66BB6A), // Light green
+    secondary = Color(0xFF66D68C), // Green accent
     onSecondary = Color.White,
-    tertiary = Color(0xFF81C784), // Lighter green
+    tertiary = Color(0xFF81D69A), // Lighter green
     onTertiary = Color.White,
     background = Color(0xFF1C1C1E), // iOS dark background
     onBackground = Color.White,

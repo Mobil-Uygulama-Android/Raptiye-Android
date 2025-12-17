@@ -312,7 +312,7 @@ private fun TaskCardWithProject(
     
     // Proje ikonu rengi
     val projectColor = when (project.iconColor) {
-        "blue" -> Color(0xFF007AFF)
+        "blue" -> Color(0xFF66D68C)
         "purple" -> Color(0xFFAF52DE)
         "pink" -> Color(0xFFFF2D55)
         "red" -> Color(0xFFFF3B30)
@@ -321,7 +321,7 @@ private fun TaskCardWithProject(
         "green" -> Color(0xFF34C759)
         "teal" -> Color(0xFF5AC8FA)
         "indigo" -> Color(0xFF5856D6)
-        else -> Color(0xFF007AFF)
+        else -> Color(0xFF66D68C)
     }
     
     // Öncelik rengi

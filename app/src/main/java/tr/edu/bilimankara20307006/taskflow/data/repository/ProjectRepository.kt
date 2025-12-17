@@ -89,6 +89,17 @@ class ProjectRepository {
     }
     
     /**
+     * Real-time görev değişikliklerini dinle - cross-platform sync için kritik
+     */
+    fun observeTasks(
+        projectId: String, 
+        onUpdate: (List<tr.edu.bilimankara20307006.taskflow.data.model.Task>) -> Unit, 
+        onError: (Exception) -> Unit
+    ): com.google.firebase.firestore.ListenerRegistration {
+        return FirebaseManager.observeTasks(projectId, onUpdate, onError)
+    }
+    
+    /**
      * Kullanıcının tüm görevlerini getir - iOS gibi
      */
     suspend fun getAllTasks(): Result<List<tr.edu.bilimankara20307006.taskflow.data.model.Task>> {
@@ -114,6 +125,13 @@ class ProjectRepository {
      */
     suspend fun removeTeamMember(userId: String, projectId: String): Result<Unit> {
         return FirebaseManager.removeTeamMember(userId, projectId)
+    }
+    
+    /**
+     * Tüm projelerin görev istatistiklerini güncelle (Migration için)
+     */
+    suspend fun updateAllProjectStats(): Result<Unit> {
+        return FirebaseManager.updateAllProjectStats()
     }
     
     companion object {

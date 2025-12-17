@@ -129,7 +129,7 @@ fun ProfileEditScreen(
                     ) {
                         Text(
                             text = localizationManager.localizedString("Edit"),
-                            color = Color(0xFF007AFF),
+                            color = Color(0xFF66D68C),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -163,7 +163,7 @@ fun ProfileEditScreen(
                         modifier = Modifier
                             .size(140.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF007AFF))
+                            .background(Color(0xFF66D68C))
                             .clickable {
                                 // TODO: Resim seçme işlemi
                             },
@@ -233,7 +233,7 @@ fun ProfileEditScreen(
                                 unfocusedIndicatorColor = Color.Transparent,
                                 focusedTextColor = textColor,
                                 unfocusedTextColor = textColor,
-                                cursorColor = Color(0xFF007AFF)
+                                cursorColor = Color(0xFF66D68C)
                             )
                         )
                     }
@@ -279,7 +279,7 @@ fun ProfileEditScreen(
                                 unfocusedIndicatorColor = Color.Transparent,
                                 focusedTextColor = textColor,
                                 unfocusedTextColor = textColor,
-                                cursorColor = Color(0xFF007AFF)
+                                cursorColor = Color(0xFF66D68C)
                             )
                         )
                     }
@@ -332,7 +332,7 @@ fun ProfileEditScreen(
                                 unfocusedIndicatorColor = Color.Transparent,
                                 focusedTextColor = textColor,
                                 unfocusedTextColor = textColor,
-                                cursorColor = Color(0xFF007AFF)
+                                cursorColor = Color(0xFF66D68C)
                             )
                         )
                     }
@@ -437,3 +437,4 @@ fun ProfileEditScreen(
         }
     }
 }
+

@@ -193,7 +193,7 @@ fun TaskCard(
                 checked = task.isCompleted,
                 onCheckedChange = { onToggleComplete(task.id) },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = Color(0xFF4CAF50),
+                    checkedColor = Color(0xFF66D68C),
                     uncheckedColor = Color(0xFF1E88E5)
                 )
             )

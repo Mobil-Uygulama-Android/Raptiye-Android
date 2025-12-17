@@ -8,6 +8,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -37,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import tr.edu.bilimankara20307006.taskflow.ui.auth.AuthViewModel
+import tr.edu.bilimankara20307006.taskflow.ui.notifications.NotificationViewModel
 import tr.edu.bilimankara20307006.taskflow.ui.project.ProjectListScreen
 import tr.edu.bilimankara20307006.taskflow.ui.project.ProjectBoardScreen
 import tr.edu.bilimankara20307006.taskflow.ui.project.ProjectDetailScreen
@@ -65,7 +70,17 @@ fun MainTabScreen(
     val localizationManager = remember { LocalizationManager.getInstance(context) }
     val scope = rememberCoroutineScope()
     val projectViewModel: tr.edu.bilimankara20307006.taskflow.ui.project.ProjectViewModel = viewModel()
+    val notificationViewModel: NotificationViewModel = viewModel()
     val repository = remember { tr.edu.bilimankara20307006.taskflow.data.repository.TaskRepository.getInstance() }
+    
+    // Notification state for badge
+    val notificationState by notificationViewModel.state.collectAsState()
+    val unreadNotificationsCount = notificationState.notifications.count { !it.isRead }
+    
+    // Load notifications for badge
+    LaunchedEffect(Unit) {
+        notificationViewModel.loadNotifications()
+    }
     
     var selectedTab by remember { mutableStateOf(0) }
     var showProjectBoard by remember { mutableStateOf(false) }
@@ -79,6 +94,7 @@ fun MainTabScreen(
     var showPrivacySettings by remember { mutableStateOf(false) }
     var showHelpSupport by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+
     
     // Dil değişikliklerini takip et
     val currentLanguage = localizationManager.currentLocale
@@ -184,6 +200,7 @@ fun MainTabScreen(
         
         tr.edu.bilimankara20307006.taskflow.ui.task.AddTaskScreen(
             projectId = addTaskProjectId!!,
+            projectName = selectedProject?.title ?: "",
             availableAssignees = projectMembers,
             onBackClick = {
                 showAddTask = false
@@ -295,6 +312,7 @@ fun MainTabScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(darkBackground)
+            .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         // Main content based on selected tab with smooth transitions
         AnimatedContent(
@@ -324,7 +342,9 @@ fun MainTabScreen(
                         selectedProject = it 
                     }
                 )
-                1 -> NotificationsScreen(localizationManager = localizationManager)
+                1 -> tr.edu.bilimankara20307006.taskflow.ui.notifications.NotificationsScreen(
+                    viewModel = notificationViewModel
+                )
                 2 -> SettingsScreen(
                     authViewModel = authViewModel,
                     onNavigateToLogin = onNavigateToLogin,
@@ -343,7 +363,8 @@ fun MainTabScreen(
             selectedTab = selectedTab,
             onTabSelected = { selectedTab = it },
             localizationManager = localizationManager,
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter),
+            unreadNotificationsCount = unreadNotificationsCount
         )
     }
 }
@@ -356,10 +377,11 @@ fun CustomBottomNavigationBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     localizationManager: LocalizationManager,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unreadNotificationsCount: Int = 0
 ) {
     val tabBackground = MaterialTheme.colorScheme.surface
-    val selectedColor = Color(0xFF4CAF50) // Green from login logo
+    val selectedColor = Color(0xFF66D68C) // Green #66D68C
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     
     Surface(
@@ -391,7 +413,8 @@ fun CustomBottomNavigationBar(
                 isSelected = selectedTab == 1,
                 selectedColor = selectedColor,
                 unselectedColor = unselectedColor,
-                onClick = { onTabSelected(1) }
+                onClick = { onTabSelected(1) },
+                badgeCount = unreadNotificationsCount
             )
             
             // Ayarlar tab
@@ -417,7 +440,8 @@ fun TabBarItem(
     isSelected: Boolean,
     selectedColor: Color,
     unselectedColor: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    badgeCount: Int = 0
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -426,12 +450,26 @@ fun TabBarItem(
             .padding(8.dp)
             .clickableWithoutRipple(onClick = onClick)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            tint = if (isSelected) selectedColor else unselectedColor,
-            modifier = Modifier.size(24.dp)
-        )
+        Box {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = if (isSelected) selectedColor else unselectedColor,
+                modifier = Modifier.size(24.dp)
+            )
+            
+            // Badge for unread notifications
+            if (badgeCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 4.dp, y = (-4).dp)
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFF3B30))
+                )
+            }
+        }
         
         Text(
             text = title,
@@ -1047,7 +1085,7 @@ fun SettingsScreen(
                             modifier = Modifier
                                 .size(60.dp)
                                 .background(
-                                    Color(0xFF007AFF),
+                                    Color(0xFF66D68C),
                                     androidx.compose.foundation.shape.CircleShape
                                 ),
                             contentAlignment = Alignment.Center
@@ -1716,7 +1754,7 @@ fun TasksListScreen(
                 contentAlignment = Alignment.Center
             ) {
                 androidx.compose.material3.CircularProgressIndicator(
-                    color = Color(0xFF4CAF50)
+                    color = Color(0xFF66D68C)
                 )
             }
         } else if (filteredTasks.isEmpty()) {

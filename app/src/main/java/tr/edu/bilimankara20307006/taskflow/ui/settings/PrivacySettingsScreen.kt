@@ -165,7 +165,7 @@ fun PrivacySettingsScreen(
                             subtitle = if (localizationManager.currentLocale == "tr") 
                                 "Uygulamayı geliştirmemize yardımcı olun" 
                             else "Help us improve the app",
-                            color = Color(0xFF2196F3),
+                            color = Color(0xFF66D68C),
                             checked = shareAnalytics,
                             onCheckedChange = { shareAnalytics = it }
                         )
@@ -243,7 +243,7 @@ fun PrivacySettingsScreen(
                             subtitle = if (localizationManager.currentLocale == "tr") 
                                 "Tüm verilerinizin bir kopyasını indirin" 
                             else "Download a copy of all your data",
-                            color = Color(0xFF2196F3),
+                            color = Color(0xFF66D68C),
                             onClick = { /* Download data logic */ }
                         )
                         
@@ -314,7 +314,7 @@ private fun PrivacySwitchItem(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF4CAF50),
+                checkedTrackColor = Color(0xFF66D68C),
                 uncheckedThumbColor = Color.White,
                 uncheckedTrackColor = Color.Gray
             )

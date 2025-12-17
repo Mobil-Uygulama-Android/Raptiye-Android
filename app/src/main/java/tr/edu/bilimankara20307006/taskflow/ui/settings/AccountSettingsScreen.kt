@@ -280,7 +280,7 @@ fun AccountSettingsScreen(
                 Icon(
                     Icons.Default.Email,
                     contentDescription = null,
-                    tint = Color(0xFF2196F3),
+                    tint = Color(0xFF66D68C),
                     modifier = Modifier.size(40.dp)
                 )
             },
@@ -314,7 +314,7 @@ fun AccountSettingsScreen(
                         // Email update logic
                         showEmailDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF2196F3))
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF66D68C))
                 ) {
                     Text(if (localizationManager.currentLocale == "tr") "Güncelle" else "Update", fontWeight = FontWeight.Bold)
                 }

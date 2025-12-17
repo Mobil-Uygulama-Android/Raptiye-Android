@@ -3,6 +3,7 @@ package tr.edu.bilimankara20307006.taskflow.ui.task
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -25,10 +26,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import tr.edu.bilimankara20307006.taskflow.data.firebase.FirebaseManager
 import tr.edu.bilimankara20307006.taskflow.data.model.Comment
 import tr.edu.bilimankara20307006.taskflow.data.model.Task
 import tr.edu.bilimankara20307006.taskflow.data.model.User
 import tr.edu.bilimankara20307006.taskflow.ui.localization.LocalizationManager
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * Görev Detay Ekranı
@@ -44,6 +49,7 @@ fun TaskDetailScreen(
     val context = LocalContext.current
     val localizationManager = remember { LocalizationManager.getInstance(context) }
     val currentLocale = localizationManager.currentLocale
+    val scope = rememberCoroutineScope()
     
     // Renk tanımları
     val darkBackground = MaterialTheme.colorScheme.background
@@ -52,12 +58,67 @@ fun TaskDetailScreen(
     val borderColor = MaterialTheme.colorScheme.outline
     val textColor = MaterialTheme.colorScheme.onSurface
     val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val greenColor = Color(0xFF66D68C)
     
     // State
     var taskTitle by remember { mutableStateOf(task.title) }
     var taskDescription by remember { mutableStateOf(task.description) }
+    var taskDueDate by remember { mutableStateOf(task.dueDate) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var commentText by remember { mutableStateOf("") }
-    var comments by remember { mutableStateOf(task.comments) }
+    var comments by remember { mutableStateOf<List<Comment>>(emptyList()) }
+    var isAddingComment by remember { mutableStateOf(false) }
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    
+    // Date formatter
+    val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+    val dateParser = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    
+    // Real-time yorum dinleyicisi
+    DisposableEffect(task.id) {
+        val listener = FirebaseManager.listenToComments(task.id) { newComments ->
+            comments = newComments
+        }
+        
+        onDispose {
+            listener.remove()
+        }
+    }
+    
+    // Yorum ekleme fonksiyonu
+    fun addComment() {
+        if (commentText.isBlank()) return
+        
+        val tempComment = Comment(
+            taskId = task.id,
+            userId = FirebaseManager.getCurrentUserId() ?: "",
+            userName = "Gönderiliyor...",
+            message = commentText,
+            timestamp = System.currentTimeMillis()
+        )
+        
+        // Optimistic UI update
+        val previousComments = comments
+        comments = comments + tempComment
+        val messageToSend = commentText
+        commentText = ""
+        
+        scope.launch {
+            isAddingComment = true
+            val result = FirebaseManager.addComment(task.id, messageToSend)
+            isAddingComment = false
+            
+            result.onFailure { error ->
+                // Hata durumunda geri al
+                comments = previousComments
+                commentText = messageToSend
+                errorMessage = error.message ?: "Yorum eklenemedi"
+                showError = true
+            }
+            // Başarılı durumda real-time listener otomatik güncelleyecek
+        }
+    }
     
     // Animation states
     var topBarVisible by remember { mutableStateOf(false) }
@@ -231,22 +292,50 @@ fun TaskDetailScreen(
                             .fillMaxWidth()
                             .background(inputBackground, RoundedCornerShape(12.dp))
                             .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                            .clickable { showDatePicker = true }
                             .padding(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarToday,
-                            contentDescription = "Calendar",
-                            tint = textSecondaryColor,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = "Calendar",
+                                tint = Color(0xFF66D68C),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            
+                            Text(
+                                text = if (!taskDueDate.isNullOrEmpty()) {
+                                    try {
+                                        val date = dateParser.parse(taskDueDate!!)
+                                        date?.let { dateFormatter.format(it) } ?: taskDueDate!!
+                                    } catch (e: Exception) {
+                                        taskDueDate!!
+                                    }
+                                } else {
+                                    "Tarih seç"
+                                },
+                                fontSize = 16.sp,
+                                color = if (taskDueDate != null) textColor else textSecondaryColor
+                            )
+                        }
                         
-                        Text(
-                            text = task.formattedDueDate,
-                            fontSize = 16.sp,
-                            color = textColor
-                        )
+                        if (taskDueDate != null) {
+                            IconButton(
+                                onClick = { taskDueDate = null }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear date",
+                                    tint = textSecondaryColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -263,7 +352,12 @@ fun TaskDetailScreen(
             
             // Comment List
             items(comments) { comment ->
-                CommentItem(comment = comment)
+                CommentItem(
+                    comment = comment,
+                    textColor = textColor,
+                    textSecondaryColor = textSecondaryColor,
+                    cardBackground = cardBackground
+                )
             }
             
             // Add Comment
@@ -271,13 +365,23 @@ fun TaskDetailScreen(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top
                 ) {
-                    // Avatar
-                    UserAvatar(
-                        user = task.assignee ?: User(displayName = "You", email = ""),
-                        size = 40.dp
-                    )
+                    // Avatar circle with initials
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(greenColor.copy(alpha = 0.3f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = FirebaseManager.getCurrentUserId()?.take(2)?.uppercase() ?: "ME",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = greenColor
+                        )
+                    }
                     
                     // Comment Input
                     OutlinedTextField(
@@ -286,40 +390,39 @@ fun TaskDetailScreen(
                         modifier = Modifier.weight(1f),
                         placeholder = {
                             Text(
-                                text = localizationManager.localizedString("AddComment"),
+                                text = "Yorum ekle...",
                                 color = textSecondaryColor
                             )
                         },
+                        enabled = !isAddingComment,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = inputBackground,
                             unfocusedContainerColor = inputBackground,
-                            focusedBorderColor = borderColor,
+                            focusedBorderColor = greenColor,
                             unfocusedBorderColor = borderColor,
                             focusedTextColor = textColor,
                             unfocusedTextColor = textColor,
-                            cursorColor = Color(0xFF4CAF50)
+                            cursorColor = greenColor,
+                            disabledContainerColor = inputBackground,
+                            disabledTextColor = textSecondaryColor
                         ),
                         shape = RoundedCornerShape(20.dp),
-                        singleLine = true,
+                        maxLines = 4,
                         trailingIcon = {
-                            if (commentText.isNotEmpty()) {
-                                IconButton(
-                                    onClick = {
-                                        // Add comment
-                                        val newComment = Comment(
-                                            text = commentText,
-                                            author = task.assignee ?: User(displayName = "You", email = "")
-                                        )
-                                        comments = comments + newComment
-                                        commentText = ""
-                                    }
-                                ) {
+                            if (commentText.isNotEmpty() && !isAddingComment) {
+                                IconButton(onClick = { addComment() }) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Send,
                                         contentDescription = "Send",
-                                        tint = Color(0xFF4CAF50)
+                                        tint = greenColor
                                     )
                                 }
+                            } else if (isAddingComment) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = greenColor,
+                                    strokeWidth = 2.dp
+                                )
                             }
                         }
                     )
@@ -332,29 +435,118 @@ fun TaskDetailScreen(
             }
         }
     }
+    
+    // Date Picker Dialog
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = taskDueDate?.let {
+                try {
+                    dateParser.parse(it)?.time
+                } catch (e: Exception) {
+                    System.currentTimeMillis()
+                }
+            } ?: System.currentTimeMillis(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    // Sadece bugün ve sonraki günleri seçilebilir yap
+                    val today = Calendar.getInstance().apply {
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }.timeInMillis
+                    return utcTimeMillis >= today
+                }
+            }
+        )
+        
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let {
+                            val date = Date(it)
+                            taskDueDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(date)
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text(
+                        text = localizationManager.localizedString("OK"),
+                        color = Color(0xFF66D68C)
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(
+                        text = localizationManager.localizedString("Cancel"),
+                        color = textSecondaryColor
+                    )
+                }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = cardBackground
+                )
+            )
+        }
+    }
+    
+    // Error Snackbar
+    if (showError) {
+        LaunchedEffect(Unit) {
+            delay(3000)
+            showError = false
+        }
+        
+        Snackbar(
+            modifier = Modifier.padding(16.dp),
+            containerColor = Color(0xFFFF5252),
+            contentColor = Color.White
+        ) {
+            Text(errorMessage)
+        }
+    }
 }
 
 /**
- * Yorum item'ı
+ * Yorum item'ı - Yeni tasarım
  */
 @Composable
 private fun CommentItem(
     comment: Comment,
+    textColor: Color,
+    textSecondaryColor: Color,
+    cardBackground: Color,
     modifier: Modifier = Modifier
 ) {
-    val cardBackground = MaterialTheme.colorScheme.surface
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val textSecondaryColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val greenColor = Color(0xFF66D68C)
     
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Avatar
-        UserAvatar(
-            user = comment.author,
-            size = 40.dp
-        )
+        // Avatar circle with initials
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(greenColor.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = comment.userName.take(2).uppercase(),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = greenColor
+            )
+        }
         
         // Comment content
         Column(
@@ -367,7 +559,7 @@ private fun CommentItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = comment.author.displayName ?: "Unknown",
+                    text = comment.userName,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = textColor
@@ -380,18 +572,12 @@ private fun CommentItem(
                 )
             }
             
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = cardBackground,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = comment.text,
-                    fontSize = 14.sp,
-                    color = textColor.copy(alpha = 0.9f),
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
+            Text(
+                text = comment.message,
+                fontSize = 14.sp,
+                color = textColor,
+                lineHeight = 20.sp
+            )
         }
     }
 }
@@ -405,20 +591,21 @@ private fun UserAvatar(
     size: Dp,
     modifier: Modifier = Modifier
 ) {
-    val avatarTextColor = Color.White // Avatar text should always be white for contrast
+    val avatarTextColor = Color.White
+    val greenColor = Color(0xFF66D68C)
     
     Box(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(Color(0xFFFF9F0A)),
+            .background(greenColor.copy(alpha = 0.3f)),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = user.displayName?.firstOrNull()?.uppercase() ?: "?",
-            fontSize = (size.value / 2).sp,
+            text = user.displayName?.take(2)?.uppercase() ?: "??",
+            fontSize = (size.value / 2.5).sp,
             fontWeight = FontWeight.Bold,
-            color = avatarTextColor
+            color = greenColor
         )
     }
 }

@@ -189,7 +189,7 @@ fun AboutScreen(
                 ) {
                     FeatureCard(
                         icon = Icons.Default.Folder,
-                        iconColor = Color(0xFF007AFF),
+                        iconColor = Color(0xFF66D68C),
                         title = localizationManager.localizedString("ProjectManagement"),
                         description = localizationManager.localizedString("ProjectManagementDesc"),
                         backgroundColor = cardBackground,
@@ -199,7 +199,7 @@ fun AboutScreen(
                     
                     FeatureCard(
                         icon = Icons.Default.CheckCircle,
-                        iconColor = Color(0xFF007AFF),
+                        iconColor = Color(0xFF66D68C),
                         title = localizationManager.localizedString("TaskTracking"),
                         description = localizationManager.localizedString("TaskTrackingDesc"),
                         backgroundColor = cardBackground,
@@ -209,7 +209,7 @@ fun AboutScreen(
                     
                     FeatureCard(
                         icon = Icons.Default.Group,
-                        iconColor = Color(0xFF007AFF),
+                        iconColor = Color(0xFF66D68C),
                         title = localizationManager.localizedString("TeamCollaboration"),
                         description = localizationManager.localizedString("TeamCollaborationDesc"),
                         backgroundColor = cardBackground,
@@ -219,7 +219,7 @@ fun AboutScreen(
                     
                     FeatureCard(
                         icon = Icons.Default.BarChart,
-                        iconColor = Color(0xFF007AFF),
+                        iconColor = Color(0xFF66D68C),
                         title = localizationManager.localizedString("AnalyticsFeature"),
                         description = localizationManager.localizedString("AnalyticsDesc"),
                         backgroundColor = cardBackground,
@@ -229,7 +229,7 @@ fun AboutScreen(
                     
                     FeatureCard(
                         icon = Icons.Default.Language,
-                        iconColor = Color(0xFF007AFF),
+                        iconColor = Color(0xFF66D68C),
                         title = localizationManager.localizedString("MultiLanguage"),
                         description = localizationManager.localizedString("MultiLanguageDesc"),
                         backgroundColor = cardBackground,
@@ -269,7 +269,7 @@ fun AboutScreen(
                             Icon(
                                 imageVector = Icons.Default.PrivacyTip,
                                 contentDescription = null,
-                                tint = Color(0xFF007AFF),
+                                tint = Color(0xFF66D68C),
                                 modifier = Modifier.size(24.dp)
                             )
                             Text(
@@ -319,7 +319,7 @@ fun AboutScreen(
                             Icon(
                                 imageVector = Icons.Default.Description,
                                 contentDescription = null,
-                                tint = Color(0xFF007AFF),
+                                tint = Color(0xFF66D68C),
                                 modifier = Modifier.size(24.dp)
                             )
                             Text(
